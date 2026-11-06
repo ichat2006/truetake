@@ -53,3 +53,7 @@ uv run --env-file .env python -m tools.review_missing_goals --execute
 ```
 
 That command can incur API cost; it was not executed during the cache-only final pass. Restart the app review afterwards to load the updated results.
+
+## Time-saved estimate
+
+The results panel defaults to **2.0 minutes per clip** and **$25/hour**, both explicitly labelled as assumptions and editable. Human hours without TrueTake are all clips × minutes/60; with TrueTake they are unresolved clips × minutes/60. Approved/rejected clips are counted as automatic decisions; duplicates are shown separately and require no repeat full review. Unattended computation time is excluded. Dollar savings subtract logged AI cost when available. A cached run has zero new calls/tokens and $0 new AI cost; unpriced live calls display an unknown cost rather than a fabricated price. The per-1,000 projection assumes the same review and cache-use rates; it is not an accuracy or throughput benchmark.

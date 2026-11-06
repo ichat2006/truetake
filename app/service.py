@@ -96,7 +96,8 @@ def view(run):
     with STATE_LOCK:
         return {'id':run['id'],'status':run['status'],'clips':[public_clip(c) for c in run['clips']],
                 'counts':dict(run['counts']),'report_url':run['report_url'],'error':run.get('error'),
-                'runtime_api_calls':run['runtime_api_calls'],'detector_runs':run['detector_runs']}
+                'runtime_api_calls':run['runtime_api_calls'],'detector_runs':run['detector_runs'],
+                'eligible_commercial':run.get('eligible_commercial',0),'savings':run.get('savings')}
 
 def update_stage(item,stage,status='done'):
     with STATE_LOCK:item['stages'][stage]=status
@@ -290,5 +291,13 @@ def run_job(run,contract):
             (report/'index.html').write_text(text)
             run['report_url']=f"/runs/{run['id']}/index.html"
             run['eligible_commercial']=sum(c['eligibility']['eligible'] and c['license_permissions']['train_commercial'] and c.get('verdict')=='APPROVED' for c in cards.values())
+            # Historical paid provenance in a cache is not new usage for this run.
+            run['ai_usage']={'calls':run['runtime_api_calls'],
+                'input_tokens':0 if not run['runtime_api_calls'] else None,
+                'output_tokens':0 if not run['runtime_api_calls'] else None,
+                'cost_usd':0. if not run['runtime_api_calls'] else None,
+                'basis':'Cached reviews reused; zero new model calls' if not run['runtime_api_calls'] else 'No billed dollar amount logged; cost is unknown'}
+            from app.savings import estimate
+            run['savings']=estimate(len(run['clips']),run['counts'],usage=run['ai_usage'])
             run['status']='complete'
         except Exception as error:run.update(status='error',error=type(error).__name__+': '+str(error)[:300])

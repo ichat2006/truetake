@@ -99,6 +99,15 @@ def test_examine_viewer_is_pinned_and_unknown_clips_are_rejected(client):
     assert client.get('/viewer/0.0.1/index.html').status_code==404
     assert client.get('/api/examine/not-a-run/missing').status_code==404
 
+def test_savings_endpoint_recomputes_assumptions_without_changing_verdicts(client):
+    run=s.create_run([{'clip_id':'clip_'+str(i),'license':'own'} for i in range(6)])
+    run['counts']={'APPROVED':1,'REJECTED':1,'NEEDS REVIEW':3,'DUPLICATE':1}
+    result=client.get(f"/api/savings/{run['id']}").json()
+    assert result['percent_saved']==50 and result['net_saved_usd']==2.5
+    assert client.get(f"/api/savings/{run['id']}?reviewer_rate=50").json()['net_saved_usd']==5
+    assert run['counts']=={'APPROVED':1,'REJECTED':1,'NEEDS REVIEW':3,'DUPLICATE':1}
+    assert client.get(f"/api/savings/{run['id']}?minutes_per_clip=-1").status_code==422
+
 def test_processing_error_is_a_visible_needs_review_result(tmp_path,monkeypatch):
     monkeypatch.setattr(s,'UPLOADS',tmp_path/'uploads')
     monkeypatch.setattr(s,'process_clip',lambda *args:(_ for _ in ()).throw(ValueError('Unreadable video fixture')))

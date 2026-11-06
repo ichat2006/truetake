@@ -105,6 +105,15 @@ async def upload(files:list[UploadFile]=File(...)):
 def state(rid:str):
     run=run_or_404(rid);result=s.view(run);result['eligible_commercial']=run.get('eligible_commercial',0);return result
 
+@app.get('/api/savings/{rid}')
+def savings(rid:str,minutes_per_clip:float=2.,reviewer_rate:float=25.):
+    from app.savings import estimate
+    run=run_or_404(rid)
+    try:result=estimate(len(run['clips']),run['counts'],minutes_per_clip,reviewer_rate,run.get('ai_usage'))
+    except ValueError as error:raise HTTPException(422,str(error))
+    run['savings']=result
+    return result
+
 @app.patch('/api/runs/{rid}/clips/{cid}')
 async def licence(rid:str,cid:str,request:Request):
     run=run_or_404(rid)

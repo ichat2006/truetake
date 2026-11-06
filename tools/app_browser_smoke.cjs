@@ -36,13 +36,23 @@ let chrome,ws,send;
  await wait("document.body.dataset.step==='4'||document.querySelector('#message').classList.contains('error')",240000);
  if(await evaluate("document.body.dataset.step!=='4'"))throw Error(await evaluate("document.querySelector('#message').textContent"));
  }
- await wait("document.querySelector('#report').contentDocument?.querySelector('.start-here')");await shot('04_results.png');
+ await wait("document.querySelector('#report').contentDocument?.querySelector('.start-here')");
+ if(await evaluate("!!document.querySelector('#saved-percent')")){
+  await wait("document.querySelector('#saved-percent').textContent.includes('%')");
+  const dollars=await evaluate("document.querySelector('#saved-dollars').textContent");
+  await evaluate("document.querySelector('#reviewer-rate').value=50;document.querySelector('#reviewer-rate').dispatchEvent(new Event('input'))");
+  await wait(`document.querySelector('#saved-dollars').textContent!==${JSON.stringify(dollars)}`);
+  await evaluate("document.querySelector('#reviewer-rate').value=25;document.querySelector('#reviewer-rate').dispatchEvent(new Event('input'))");
+  await wait(`document.querySelector('#saved-dollars').textContent===${JSON.stringify(dollars)}`);
+ }
+ await shot('04_results.png');
  const thumbnails=await evaluate("(async()=>{const d=document.querySelector('#report').contentDocument;let nodes=[...d.querySelectorAll('svg.map image')];let results=await Promise.all(nodes.map(n=>new Promise(resolve=>{let i=new Image();i.onload=()=>resolve({ok:i.naturalWidth===320,width:i.naturalWidth});i.onerror=()=>resolve({ok:false});i.src=new URL(n.getAttribute('href'),d.baseURI).href})));return {count:nodes.length,results}})()");
  if(!thumbnails.count||!thumbnails.results.every(t=>t.ok))throw Error('Clip-map images failed: '+JSON.stringify(thumbnails));
  console.log('MAP THUMBNAILS',JSON.stringify(thumbnails));
  const cut=await evaluate("(()=>{const d=document.querySelector('#report').contentDocument;const c=d.querySelector('article[id$=\"_black_gap\"]');return c?{players:c.querySelectorAll('video').length,cut:c.textContent.includes('Proposed cut'),gap:!!c.querySelector('[title*=\"8–13\"]')}:null})()");
  if(cut&&(!cut.cut||cut.players!==2||!cut.gap))throw Error('Cut example missing side-by-side media or shaded gap: '+JSON.stringify(cut));
  const result=await evaluate("(async()=>{let run=await(await fetch('/api/runs/'+currentRun.id)).json();return {passed:run.status==='complete'&&run.runtime_api_calls===0&&run.detector_runs===0,run_id:run.id,counts:run.counts,runtime_api_calls:run.runtime_api_calls,detector_runs:run.detector_runs,report_url:run.report_url,start_tiles:document.querySelector('#report').contentDocument.querySelectorAll('.start-tile').length,clips:run.clips.map(c=>({clip_id:c.clip_id,verdict:c.verdict,license:c.license,cached:c.cached})),summary:document.querySelector('#result-title').textContent}})()");
+ result.savings=await evaluate("currentRun.savings||null");
  fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));
  if(!result.passed)process.exitCode=1;
  if(process.argv.includes('--examine')||process.env.TRUETAKE_EXAMINE==='1'){
