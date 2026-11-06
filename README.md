@@ -60,6 +60,4 @@ Small, reused development clip set with incomplete human labels. EPIC stabilizat
 - **Existing local collection / own recordings:** no author-recorded footage has been supplied. The legacy collection label own is preserved in collection; source is now true provenance. Only self-recorded footage may use source=own. Its folding footage comes from [EgoDex](https://github.com/apple-aiml-research/ml-egodex), whose dataset terms are CC-by-NC-ND. Cite R. Hoque et al., *EgoDex: Learning Dexterous Manipulation from Large-Scale Egocentric Video* (2025), [paper](https://arxiv.org/abs/2505.11709). Source licenses continue to apply to demo assets; they are not relicensed as project code.
 - **Hub:** reserved for internal evaluation only; no clips were available in this saved run. No media or thumbnails from this source are redistributed.
 
-## Built before vs during the event
-
 [Fill in before submission: list what existed before the event and exactly what was built during the event.]
