@@ -11,3 +11,11 @@ Step 2: public/internal reports now have five thumbnail tiles and a verdict/sens
 Step 3: concise judges README replaces outdated calibration/deferred claims. Credits distinguish downloaded EgoDex footage from actual own recordings. The unchanged calibrated EPIC profile is copied into docs/ for reproducible code-only setup. Timing is labeled an estimate; model escalation and evaluation gaps are explicit.
 
 Step 4: all requested ignore cases pass, including standalone Rerun files. Tracked-path audit: no matches; history credential-prefix count: 0. No history was rewritten. Detailed sanitized results: outputs/final/safety.json.
+
+Step 5: offline submission folder contains 26 thumbnail/reason cards, but video only for five Start-here clips (8 MP4s including three existing derivatives). All media are H.264/yuv420p, 480p, CRF 30, faststart and silent. All local asset links and card anchors validate; restricted-source identifier scan is empty. The agreement copy omits restricted identifiers while preserving aggregate counts.
+
+Demo zip: 28,544,970 bytes (28.54 MB), below 100 MB. Chrome file-URL playback passed for the 854×480 trimmed copy, duration 22.07s. Two documented real-clip CLI checks passed. Full suites by step: 245 / 246 / 246 / 246 / 247 passed. No API calls, detector reruns, dependency additions, data edits or history rewrites.
+
+Start-here IDs: basic_fold_1_black_gap; splice_P03_109_P04_104; basic_fold_0_controlled_reupload (compare basic_fold_0); P03_119_207_267; P01_102_000_060_wrong_task.
+
+Remaining: unknown completion labels prevent agreement measurement; no approved trimmed example; wrong-task goal remains unverified. README screenshot/event-history placeholders remain for the author. EgoDex footage is not author-recorded footage; source NC-ND terms remain applicable to adapted demo assets and should be checked before public redistribution. Current package metadata and archive sizes are recorded under outputs/final/.

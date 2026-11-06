@@ -19,6 +19,19 @@ def test_test_agreement_does_not_invent_unknown_labels_or_score_reviews():
     assert 'separately (1)' in result['line']
     assert next(r for r in result['rows'] if r['clip_id']=='unknown')['agree'] is None
 
+def test_lightweight_bundle_removes_other_videos_and_large_artifact_links(tmp_path):
+    import importlib.util
+    spec=importlib.util.spec_from_file_location('packaging',Path('docs/package_submission.py'))
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    (tmp_path/'selected.mp4').write_bytes(b'fixture')
+    text="<article id='selected'><video id='video_selected' src='selected.mp4'></video></article><article id='other'><video id='video_other' src='../raw.mp4'></video></article><p><a href='../huge.rrd'>Rerun recording</a> · <a href='../frames.json'>Per-frame table</a></p>"
+    text=module.finalize_html(text,{'selected'})
+    assert 'video_other' not in text and 'huge.rrd' not in text
+    assert module.LinkAudit(tmp_path).validate(text)==['selected.mp4']
+    import pytest
+    with pytest.raises(ValueError,match='escaping'):
+        module.LinkAudit(tmp_path).validate("<img src='../outside.jpg'>")
+
 
 def test_report_is_offline_escapes_text_and_links_evidence(tmp_path, monkeypatch):
     monkeypatch.setattr("truetake.report.browser_preview", lambda video, destination, spans: video)
