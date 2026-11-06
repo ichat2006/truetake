@@ -105,8 +105,7 @@ def save_recording(rec: Recording, table: pd.DataFrame, card: dict, path: str) -
                  card.get("usable_evidence_kind", ""),
                  "Decision: " + "; ".join(card.get("decision_reasons", [])),
                  f"AI evidence: {(card.get('claude_usage') or {}).get('mode', 'baseline')}; {(card.get('claude_usage') or {}).get('initial_images', 'unknown')} initial images",
-                 f"Local detectors: {(card.get('detector_stats') or {}).get('mode', 'multipass')}; {(card.get('detector_stats') or {}).get('analysis_decode_passes', 'unknown')} analysis decode pass(es)",
-                 f"Claude: {card.get('claude_status', 'pending')}", card.get("fixture_kind", ""), "## Checks"]
+                 card.get("fixture_kind", ""), "## Checks"]
         for check in card.get("checks", []):
             verdict = "PASS" if check["passed"] is True else "FAIL" if check["passed"] is False else "UNKNOWN"
             lines.append(f"- **{verdict} {check['name']}**: {check['reason']}")
