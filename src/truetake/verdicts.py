@@ -10,7 +10,7 @@ def apply_verdict(table, checks: list[CheckResult], quality: dict):
         return checks, quality
     measured = context(table, contract, quality.get("excluded_intervals", []))
     failures, reviews = [], []
-    timestamp = 0.
+    reason_times = {}
     for rule in measured["rules"]:
         label = rule["rule_id"].replace("_", " ").capitalize()
         value = rule["value"]
@@ -21,8 +21,9 @@ def apply_verdict(table, checks: list[CheckResult], quality: dict):
         state = rule["state"]
         checks.append(CheckResult("measured."+rule["rule_id"], {"pass":True,"fail":False,"review":None}[state],
                                   value or 0., reason, [(window[0],window[1],reason)]))
-        if state == "fail": failures.append(reason);timestamp=window[0]
-        elif state == "review": reviews.append(reason);timestamp=window[0]
+        reason_times[reason] = window[0]
+        if state == "fail": failures.append(reason)
+        elif state == "review": reviews.append(reason)
     seconds = measured["usable_assessment"]
     if seconds and seconds["state"] != "pass":
         reason = (f"Usable time {seconds['value']:.1f}s (needs {seconds['target']:.1f}s; "
@@ -48,12 +49,14 @@ def apply_verdict(table, checks: list[CheckResult], quality: dict):
     elif gyro and measured["close_calls_enabled"] and profile.get("review_low") is not None and profile["review_low"] <= gyro.score <= profile["review_high"]:
         reviews.append(f"Phone motion score {gyro.score:.3f} is in the {profile['review_low']:.3f}–{profile['review_high']:.3f} close-call zone — check 0:00")
     if not measured["close_calls_enabled"] and reviews:
-        failures += [reason for reason in reviews if reason.startswith("Goal") or "not measured" in reason]
+        # Unknown required evidence cannot become an approval when bands turn off.
+        failures += reviews
         reviews = []
     verdict = "REJECTED" if failures else "NEEDS REVIEW" if reviews else "APPROVED"
     result = {**quality, "status": STATUS[verdict], "verdict": verdict, "measured": measured,
               "decision_reasons": failures or reviews or ["Meets the task checklist."],
-              "decision_timestamp_s": timestamp, "sensor_verified": bool(gyro and gyro.passed is True)}
+              "decision_timestamp_s": reason_times.get((failures or reviews or [""])[0], 0.),
+              "sensor_verified": bool(gyro and gyro.passed is True)}
     usable = quality.get("candidate_task_intervals") or quality.get("usable_intervals") or []
     result["usable_intervals"] = usable if verdict == "APPROVED" else []
     result["usable_seconds"] = sum(b-a for a,b in result["usable_intervals"])

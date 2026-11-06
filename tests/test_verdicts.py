@@ -24,3 +24,10 @@ def test_goal_unsure_cannot_be_approved():
     checks,quality=check_quality(table)
     _,result=apply_verdict(table,checks,quality)
     assert result['verdict'] in ('NEEDS REVIEW','REJECTED')
+
+def test_gyro_first_reason_links_to_its_own_timestamp():
+    table=lab_table()
+    checks,quality=check_quality(table)
+    checks.append(CheckResult('verification.gyro',False,.1,'mismatch',[]))
+    _,result=apply_verdict(table,checks,quality)
+    assert result['decision_timestamp_s']==0.

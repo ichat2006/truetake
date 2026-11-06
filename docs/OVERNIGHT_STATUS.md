@@ -9,3 +9,9 @@ paid corpus review remain outstanding; no model-upgrade code was retained.
 
 The strict measured-target policy rejects the current independent corpus. This is
 reported as observed, with no targets tuned on test clips and no fabricated approvals.
+
+Final validation: 235 tests passed, two real-clip CLI checks passed, three Rerun
+recordings validated, and headless Chrome played the new black-gap original in the
+rebuilt report. Public/internal reports and the public backup are under `outputs/`.
+There are 26 evaluated rows: 25 rejected and one controlled duplicate. No approved
+cut example, approved EPIC card, or final NEEDS REVIEW card exists under this policy.
