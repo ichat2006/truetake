@@ -156,6 +156,8 @@ def followup_frames(rec, table: pd.DataFrame, requests: list[dict], destination:
 
 
 def _request(client, prompt, contract, table, frames, model, stage, version):
+    from truetake.measured import context
+    measured_context = context(table, contract) if version == 2 else {}
     duration = float(table.sample_end.iloc[-1])
     plan = table.iloc[0].get("evidence_plan")
     focused = isinstance(plan, dict) and plan.get("mode") == "focused"
@@ -165,6 +167,7 @@ def _request(client, prompt, contract, table, frames, model, stage, version):
               "{overview_or_targeted_follow_up}": stage}
     for name, value in values.items():
         prompt = prompt.replace(name, value)
+    prompt += "\nMeasured context (formula judges measured rules; you judge the goal): " + json.dumps(measured_context)
     content = [{"type": "text", "text": prompt if focused else prompt + "\nContract: " + json.dumps(contract)}]
     for row, time in frames.items():
         data = base64.b64encode(Path(table.at[row, "thumbnail_path"]).read_bytes()).decode()

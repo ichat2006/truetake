@@ -2,9 +2,8 @@ draft: false
 schema_version: 2
 task: wash dishes
 collection_purpose: First-person demonstrations for robot manipulation training
-lab_instructions: >-
-  Show dish washing at a sink. Dishes must be rinsed and set aside at completion.
-  Brief hand exits are acceptable when handling remains understandable.
+lab_instructions: Show dish washing at a sink. Dishes must be rinsed and set aside
+  at completion. Brief hand exits are acceptable when handling remains understandable.
 goal:
   id: dishes_rinsed_and_set_aside
   description: Dishes rinsed and set aside.
@@ -13,25 +12,45 @@ goal:
   on_uncertain: human_review
   allow_explicit_request_override: true
 process:
-  - id: dish_handling_visible
-    description: The sink or dish is visible and task-relevant handling can be followed.
-    required: true
-    brief_gap_tolerance_s: 2.0
-    on_brief_gap: allow
-    on_long_gap: exclude_interval
-  - id: both_hands_visible
-    description: Both hands are visible while handling dishes.
+- id: dish_handling_visible
+  description: The sink or dish is visible and task-relevant handling can be followed.
+  required: true
+  brief_gap_tolerance_s: 2.0
+  on_brief_gap: allow
+  on_long_gap: exclude_interval
+- id: both_hands_visible
+  description: Both hands are visible while handling dishes.
+  required: false
+  on_failure: warning
+  measurement: hands_inside
+  target: 0.9
+- id: idle
+  max_idle_s: 3.0
+  on_failure: exclude_interval
+  measurement: active_fraction
+  target: 1.0
+requirements:
+  landscape:
+    enabled: true
     required: false
     on_failure: warning
-  - id: idle
-    max_idle_s: 3.0
-    on_failure: exclude_interval
-requirements:
-  landscape: {enabled: true, required: false, on_failure: warning}
-  min_height_px: {enabled: true, value: 720, required: false, on_failure: warning}
-  min_fps: {enabled: true, value: 24, required: false, on_failure: warning}
-  faces: {enabled: true, on_detection: flag_for_blur, reject_whole_clip: false}
-  sensors: {required: false, when_missing: unverified}
+  min_height_px:
+    enabled: true
+    value: 720
+    required: false
+    on_failure: warning
+  min_fps:
+    enabled: true
+    value: 24
+    required: false
+    on_failure: warning
+  faces:
+    enabled: true
+    on_detection: flag_for_blur
+    reject_whole_clip: false
+  sensors:
+    required: false
+    when_missing: unverified
 duration:
   min_usable_seconds: null
   exclude_flagged_intervals: true
@@ -53,6 +72,10 @@ ai_review:
   do_not_infer_continuity_between_sparse_frames: true
 value:
   eligible_clips: accepted_only
-  compare: [scene, hand_motion_when_available, folding_steps]
+  compare:
+  - scene
+  - hand_motion_when_available
+  - folding_steps
   duplicate_action: flag_group_and_keep_best_approved_example
   wanted_variations: []
+min_usable_seconds: null

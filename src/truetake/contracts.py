@@ -31,6 +31,9 @@ def load_contract(path: str, instructions: str = "") -> dict:
         if len(ids) != len(set(ids)):
             raise ValueError("Process rule IDs must be unique.")
         for rule in rules:
+            for key in ("target", "review_band"):
+                if key in rule and (type(rule[key]) not in (int, float) or not math.isfinite(rule[key]) or not 0 <= rule[key] <= 1):
+                    raise ValueError(f"{key} must be a fraction in [0,1].")
             if not isinstance(rule.get("required", False), bool):
                 raise ValueError("Rule required fields must be boolean.")
             for key in ("brief_gap_tolerance_s", "max_idle_s"):

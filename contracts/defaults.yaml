@@ -1,0 +1,9 @@
+review_band: 0.10
+review_band_seconds: 3.0
+review_upper_cap: 0.95
+close_calls_enabled: true
+measurement:
+  min_observed_fraction: 0.5
+  idle_change_max: 0.01
+  black_mean_max: 5.0
+  freeze_change_max: 0.0001
