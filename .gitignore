@@ -7,7 +7,7 @@ wheels/
 *.egg-info
 
 # Virtual environments
-.venv
+.venv/
 
 # Local credentials (never commit)
 .env
@@ -17,6 +17,7 @@ wheels/
 .idea/
 .pytest_cache/
 outputs/
+*.rrd
 
 # Downloaded corpus media and raw sensor exports; keep data/manifest.csv reviewable.
 /data/raw/
