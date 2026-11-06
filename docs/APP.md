@@ -37,3 +37,19 @@ Run state is in memory; outputs persist on disk. After a server restart, start a
 ## Licensed cut fixture
 
 `uv run python -m tools.make_screenrecord_cut` creates a permitted EPIC black-gap fixture under outputs. Its extra manifest row is in `outputs/manifest_v2_additions.csv`, merged with the immutable `data/manifest_v2.csv`. The parent washing goal evidence is reused only for this known insertion, with evidence timestamps and frame IDs shifted and validated. Sensors and sensor-verification claims are removed. Basic encoded-frame image statistics are measured locally; no new model calls are made. The mixed-task demo labels this fixture with its saved washing checklist. Existing conservative trimming retains one second at each gap edge: the full 8–13 s defect is shaded, while the darker inner band shows the actual cut. Any NEEDS REVIEW verdict is retained.
+
+## Examine
+
+Every result card opens the installed Rerun web viewer inside a full-screen modal. Its assets are served locally from the installed wheel and pinned to exactly the installed SDK version (currently 0.42.0). Missing recordings are generated on demand from saved tables; this makes no model calls. Sensor timelines include mapped pan/roll against gyro with the stored clock offset applied. First opening a long timeline can take several seconds to load.
+
+EgoDex originals in this catalogue use the MPEG-4 codec, unsupported by Rerun video playback. Their original-only licence forbids video conversion: Examine shows a labelled static midpoint preview plus the cached signal timeline. The EPIC splice and black-gap example have playable timeline images. No restricted media is exposed through the Examine endpoint.
+
+## Optional missing-goal review (you run this)
+
+This final pass made no API calls. Four catalogue evaluations still lack saved goals: `P01_102_000_060_wrong_task`, `P06_102_575_635_wrong_task`, `basic_fold_1_black_gap`, and `basic_fold_1_freeze`. Only the first is in the curated demo. Keep them unconfirmed, or explicitly run this to review only missing goals with the existing model/prompt and saved detector tables, then rebuild the reports:
+
+```bash
+uv run --env-file .env python -m tools.review_missing_goals --execute
+```
+
+That command can incur API cost; it was not executed during the cache-only final pass. Restart the app review afterwards to load the updated results.

@@ -42,12 +42,14 @@ def catalog():
     result={};metadata=catalog_metadata()
     published=ROOT/'outputs/demo/batch.json'
     public=json.loads(published.read_text()).get('cards',{}) if published.exists() else {}
+    previews=CACHE/'preview_index.json'
+    prepared=json.loads(previews.read_text()) if previews.exists() else {}
     for path in sorted((ROOT/'outputs/manifest_run').glob('*.json')):
         if path.name=='batch.json':continue
         card=json.loads(path.read_text()).get('card')
         if card and card['clip_id'] in metadata:
             card=apply_license({**card,**metadata[card['clip_id']]})
-            shown=public.get(card['clip_id'],{})
+            shown=public.get(card['clip_id']) or prepared.get(card['clip_id'],{})
             if (same_plan(shown.get('privacy_blur_intervals'),card.get('privacy_blur_intervals'))
                     and shown.get('preview_path') and Path(shown['preview_path']).is_file()
                     and shown.get('video_path')==card.get('video_path')):
@@ -217,6 +219,7 @@ def process_clip(run,item,contract):
         checks,quality=evaluate(table,contract);card.update(quality,checks=[asdict(c) for c in checks])
     card=apply_license({**card,**{k:item.get(k) for k in ['license','source','media_modified'] if k in item}},contract)
     card['known_origin']=item.get('known_origin',False)
+    card['gyro_alignment']=table.iloc[0].get('gyro_alignment')
     if cached:
         for key in ['demo_gap','cache_provenance','task_contract']:
             if key in cached:card[key]=cached[key]
@@ -268,9 +271,22 @@ def run_job(run,contract):
             analysis=analyze_batch(tables,cards)
             report=Path(run['folder'])/'report'
             publish_subset({'cards':cards,'analysis':analysis},report,False)
+            rendered=json.loads((report/'batch.json').read_text())['cards']
+            preview_index=CACHE/'preview_index.json';CACHE.mkdir(parents=True,exist_ok=True)
+            prepared=json.loads(preview_index.read_text()) if preview_index.exists() else {}
+            prepared.update({name:{key:c.get(key) for key in ['video_path','preview_path','privacy_blur_intervals']}
+                             for name,c in rendered.items() if c.get('media_display_allowed')})
+            preview_index.write_text(json.dumps(prepared))
             text=(report/'index.html').read_text()
             text=text.replace('</style>',":root{--muted:#686960;--ink:#1D1D1B;--line:#d9d7cf;color-scheme:light}body{background:#F4F2EC;color:#1D1D1B}.box,article,.start-tile{background:#fff;border-color:#dedbd2}h1,h2{font-family:monospace}a,.time-link{color:#0F6E6E}pre{background:#eeeae0;color:#333}.badge{background:#fff}.reason,.usable{color:#1D1D1B}.map{background:#e6e2d7}.map text{fill:#555}.empty-player{color:#555}.next{color:#0F6E6E}</style>")
             text=text.replace('</style>',"header>.brand,header>h1,header>.next{display:none}header{padding:0 0 16px}main{padding-top:24px}</style>")
+            from app.examine import RERUN_VERSION
+            for name,card in cards.items():
+                label='Examine — needs a human' if badge(card)=='NEEDS REVIEW' else 'Examine'
+                button=f"<button class='examine {'needs-human' if badge(card)=='NEEDS REVIEW' else ''}' data-examine='{name}'>{label}</button>"
+                text=text.replace(f"<article id='{name}'>",f"<article id='{name}'>"+button)
+            text=text.replace('</body>',"<script>document.addEventListener('click',e=>{const b=e.target.closest('[data-examine]');if(b)window.parent.postMessage({type:'truetake-examine',clip_id:b.dataset.examine},location.origin)});</script></body>")
+            text=text.replace('</style>',".examine{padding:9px 15px;background:transparent;color:#0F6E6E;border:1px solid #0F6E6E;border-radius:4px;margin-bottom:12px}.examine.needs-human{background:#0F6E6E;color:white;font-weight:600}</style>")
             (report/'index.html').write_text(text)
             run['report_url']=f"/runs/{run['id']}/index.html"
             run['eligible_commercial']=sum(c['eligibility']['eligible'] and c['license_permissions']['train_commercial'] and c.get('verdict')=='APPROVED' for c in cards.values())

@@ -2,6 +2,7 @@
 
 import json
 import cv2
+import subprocess
 from pathlib import Path
 
 import numpy as np
@@ -93,7 +94,8 @@ def save_recording(rec: Recording, table: pd.DataFrame, card: dict, path: str) -
                          rrb.TimeSeriesView(origin="/signals/quality", name="Image quality"),
                          rrb.TimeSeriesView(origin="/signals/hands", name="Hands"),
                          rrb.TimeSeriesView(origin="/signals/motion", name="Motion"),
-                         rrb.TimeSeriesView(origin="/aligned", name="Video / mapped gyro (standard deviations)"),
+                         *([rrb.TimeSeriesView(origin="/aligned", name="Video motion vs phone gyro (offset applied)")]
+                           if rec.imu is not None else []),
                          rrb.Spatial2DView(origin="/segments", name="Kept / cut — original seconds")),
             column_shares=[2, 1]), rrb.TimePanel(timeline="clip", state="expanded"), collapse_panels=True))
         from truetake.presentation import badge, plain_reason
@@ -114,28 +116,22 @@ def save_recording(rec: Recording, table: pd.DataFrame, card: dict, path: str) -
                           exported.get("video_path", exported.get("reason", "")),
                           "This timeline uses original times. Edit markers map them to the exported video."])
         stream.log("review/card", rr.TextDocument("\n\n".join(lines), media_type="text/markdown"), static=True)
-        for row, frame in iter_sampled_frames(rec, table, max_width=DISPLAY_WIDTH):
-            stream.set_time("clip", duration=float(table.at[row, "t"]))
-            if "claude_selected" in table and table.at[row, "claude_selected"]:
-                stream.log("review/claude_evidence", rr.TextLog(f"Frame {row}: {table.at[row, 'claude_selection_reason']}"))
-            if any(a <= float(table.at[row, "t"]) <= b for a, b in card.get("privacy_blur_intervals", [])):
-                # Preserve the previous blur strength relative to image width.
-                kernel = round(PRIVACY_BLUR_KERNEL * frame.shape[1] / ANALYSIS_WIDTH) | 1
-                frame = cv2.GaussianBlur(frame, (kernel, kernel), 0)
-            stream.log("video/image", rr.Image(frame, color_model="BGR").compress(jpeg_quality=JPEG_QUALITY))
-            height, width = frame.shape[:2]
-            hands = table.at[row, "hand_landmarks"] if "hand_landmarks" in table else None
-            if hands is not None:
-                strips = []
-                for hand in hands:
-                    points = np.array(hand["points"])[:, :2] * [width, height]
-                    strips.extend([points[[a, b]] for a, b in HAND_CONNECTIONS])
-                stream.log("video/image/hands", rr.LineStrips2D(strips, colors=[70, 230, 170], radii=1.0))
-            for group, columns in {'quality':['brightness','blur_var'], 'hands':['hand_count','hands_inside'],
-                                   'motion':['frame_change']}.items():
-                for column in columns:
-                    if column in table and pd.notna(table.at[row,column]):
-                        stream.log(f"signals/{group}/{column}",rr.Scalars(float(table.at[row,column])))
+        from truetake.licenses import apply_license
+        original_only=not apply_license(card)['license_permissions']['modify']
+        static_preview=False
+        if original_only:
+            # Preserve the encoded media bytes: no resized/recompressed video frames.
+            probe=json.loads(subprocess.check_output(['ffprobe','-v','error','-select_streams','v:0',
+                '-show_entries','stream=codec_name','-of','json',rec.video_path]))
+            static_preview=probe['streams'][0]['codec_name']=='mpeg4'
+            if static_preview:
+                from truetake.thumbnails import midpoint_thumbnail
+                image=midpoint_thumbnail(rec.video_path,str(Path(path).with_suffix('.preview.jpg')),float(rec.meta['duration_s']))
+                stream.log('video/image',rr.EncodedImage(path=image),static=True)
+                lines.insert(1,'Original-only licence: static midpoint preview. The source MPEG-4 codec is unsupported by this viewer; no converted video was created.')
+                stream.log('review/card',rr.TextDocument('\n\n'.join(lines),media_type='text/markdown'),static=True)
+            else:
+                stream.log('video/image',rr.AssetVideo(path=rec.video_path),static=True)
         for axis,(grid,video,gyro) in aligned_motion(table,card.get('gyro_alignment') or {}).items():
             stream.log(f'aligned/{axis}/video',rr.SeriesLines(colors=[100,196,255],names=f'{axis}: video'),static=True)
             stream.log(f'aligned/{axis}/gyro',rr.SeriesLines(colors=[244,199,119],names=f'{axis}: mapped gyro'),static=True)
@@ -154,6 +150,31 @@ def save_recording(rec: Recording, table: pd.DataFrame, card: dict, path: str) -
         for part in segments:
             stream.set_time('clip',duration=part['start'])
             stream.log('review/segments',rr.TextLog(f"{part['kind']} {part['start']:.1f}–{part['end']:.1f}s: {part['reason']}"))
+        for row, frame in iter_sampled_frames(rec, table, max_width=DISPLAY_WIDTH):
+            stream.set_time("clip", duration=float(table.at[row, "t"]))
+            if "claude_selected" in table and table.at[row, "claude_selected"]:
+                stream.log("review/claude_evidence", rr.TextLog(f"Frame {row}: {table.at[row, 'claude_selection_reason']}"))
+            if any(a <= float(table.at[row, "t"]) <= b for a, b in card.get("privacy_blur_intervals", [])):
+                # Preserve the previous blur strength relative to image width.
+                kernel = round(PRIVACY_BLUR_KERNEL * frame.shape[1] / ANALYSIS_WIDTH) | 1
+                frame = cv2.GaussianBlur(frame, (kernel, kernel), 0)
+            if original_only and not static_preview:
+                stream.log('video/image',rr.VideoFrameReference(seconds=float(table.at[row,'t'])))
+            elif not original_only:
+                stream.log("video/image", rr.Image(frame, color_model="BGR").compress(jpeg_quality=JPEG_QUALITY))
+            height, width = frame.shape[:2]
+            hands = table.at[row, "hand_landmarks"] if "hand_landmarks" in table else None
+            if hands is not None and not original_only:
+                strips = []
+                for hand in hands:
+                    points = np.array(hand["points"])[:, :2] * [width, height]
+                    strips.extend([points[[a, b]] for a, b in HAND_CONNECTIONS])
+                stream.log("video/image/hands", rr.LineStrips2D(strips, colors=[70, 230, 170], radii=1.0))
+            for group, columns in {'quality':['brightness','blur_var'], 'hands':['hand_count','hands_inside'],
+                                   'motion':['frame_change']}.items():
+                for column in columns:
+                    if column in table and pd.notna(table.at[row,column]):
+                        stream.log(f"signals/{group}/{column}",rr.Scalars(float(table.at[row,column])))
         review=card.get('claude_review') or {}
         evidence={item['id']:item for item in review.get('evidence',[])}
         for step in review.get('steps',[]):

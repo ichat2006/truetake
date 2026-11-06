@@ -93,6 +93,12 @@ def test_review_signature_changes_for_goal_but_not_licence_or_targets(client):
     other['goal']['description']='Walk to another room.'
     assert s.review_signature(contract)!=s.review_signature(other)
 
+def test_examine_viewer_is_pinned_and_unknown_clips_are_rejected(client):
+    from importlib.metadata import version
+    assert client.get('/api/config').json()['rerun_version']==version('rerun-sdk')
+    assert client.get('/viewer/0.0.1/index.html').status_code==404
+    assert client.get('/api/examine/not-a-run/missing').status_code==404
+
 def test_processing_error_is_a_visible_needs_review_result(tmp_path,monkeypatch):
     monkeypatch.setattr(s,'UPLOADS',tmp_path/'uploads')
     monkeypatch.setattr(s,'process_clip',lambda *args:(_ for _ in ()).throw(ValueError('Unreadable video fixture')))

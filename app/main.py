@@ -11,6 +11,7 @@ import yaml
 from app import service as s
 from truetake.licenses import apply_license,policy,resolve_cached_path
 from truetake.contracts import load_contract
+from app.examine import RERUN_VERSION,viewer_asset,ensure_recording
 
 app=FastAPI(title='TrueTake',docs_url='/api/docs')
 
@@ -23,7 +24,22 @@ def index():return FileResponse(Path(__file__).with_name('index.html'))
 
 @app.get('/api/config')
 def config():
-    return {'example':load_contract(str(s.ROOT/'contracts/mercor_folding.yaml')),'policy':policy(),'stages':s.STAGES}
+    return {'example':load_contract(str(s.ROOT/'contracts/mercor_folding.yaml')),'policy':policy(),'stages':s.STAGES,'rerun_version':RERUN_VERSION}
+
+@app.get('/viewer/{version}/{asset:path}')
+def viewer(version:str,asset:str):
+    if version!=RERUN_VERSION:raise HTTPException(404,'Viewer version does not match installed SDK')
+    try:return FileResponse(viewer_asset(asset,s.ROOT/'outputs/viewer_assets'))
+    except ValueError as error:raise HTTPException(400,str(error))
+
+@app.get('/api/examine/{rid}/{cid}')
+def examine(rid:str,cid:str):
+    run=run_or_404(rid);item=next((c for c in run['clips'] if c['clip_id']==cid),None)
+    if item is None:raise HTTPException(404)
+    try:path=ensure_recording(run,item)
+    except PermissionError as error:raise HTTPException(403,str(error))
+    except ValueError as error:raise HTTPException(409,str(error))
+    return {'version':RERUN_VERSION,'rrd_url':f'/runs/{rid}/{cid}/timeline.rrd','viewer_url':f'/viewer/{RERUN_VERSION}/'}
 
 @app.post('/api/preview')
 async def preview(request:Request):

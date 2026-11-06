@@ -40,8 +40,10 @@ def plain_reason(card: dict) -> str:
     duration = float(card.get('duration_s', 0.))
     assessment = (card.get('measured') or {}).get('usable_assessment') or {}
     minimum = assessment.get('target') or card.get('min_usable_seconds') or 0.
-    if duration > 0 and (duration < MIN_REVIEW_DURATION_S or duration < minimum):
-        return f'Too short to review ({duration:.1f} s)'
+    available = assessment.get('value', duration)
+    if duration > 0 and (duration < MIN_REVIEW_DURATION_S or available < minimum):
+        seconds = duration if duration < MIN_REVIEW_DURATION_S else available
+        return f'Too short to review ({seconds:.1f} s)'
     if card.get("verdict") in ("REJECTED", "NEEDS REVIEW") and card.get("decision_reasons"):
         return card["decision_reasons"][0]
     verdict = badge(card)
