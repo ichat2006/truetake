@@ -1,4 +1,4 @@
-review_band: 0.10
+review_band: 0.1
 review_band_seconds: 3.0
 review_upper_cap: 0.95
 close_calls_enabled: true
@@ -7,3 +7,6 @@ measurement:
   idle_change_max: 0.01
   black_mean_max: 5.0
   freeze_change_max: 0.0001
+review_sanity:
+  max_train_review_fraction: 0.3333333333333333
+  halve_factor: 0.5

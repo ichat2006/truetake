@@ -166,6 +166,8 @@ def run_batch(input_dir: str, contract_path: str, output_dir: str, include_dupli
             checks, quality = check_quality(table)
             checks.extend(verification)
             quality = apply_verification_quality(quality, verification)
+            from truetake.verdicts import apply_verdict
+            checks, quality = apply_verdict(table, checks, quality)
             card = build_card(clip_id, table, checks, quality)
             card["gyro_alignment"] = table.iloc[0].get("gyro_alignment")
             card.update(video_path=str(video.resolve()), card_path=str(clip_dir / "card.json"),

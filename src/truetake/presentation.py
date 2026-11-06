@@ -19,12 +19,14 @@ MAP_HEIGHT = 520
 MAX_REASON_CHARACTERS = 220
 MAX_TRACE_POINTS = 180
 COLORS = {"APPROVED": "#46d6a0", "CUT": "#64c4ff", "REJECTED": "#ff8581",
-          "DUPLICATE": "#b5a2ff", "NOT VERIFIED": "#f4c777"}
+          "DUPLICATE": "#b5a2ff", "NOT VERIFIED": "#f4c777", "NEEDS REVIEW": "#f4c777"}
 
 
 def badge(card: dict) -> str:
     if card.get("fixture_kind"):
         return "DUPLICATE"
+    if card.get("verdict") in ("REJECTED", "NEEDS REVIEW"):
+        return card["verdict"]
     if card["status"] == "REJECT":
         return "REJECTED"
     if card["status"] != "ACCEPT":
@@ -34,6 +36,8 @@ def badge(card: dict) -> str:
 
 
 def plain_reason(card: dict) -> str:
+    if card.get("verdict") in ("REJECTED", "NEEDS REVIEW") and card.get("decision_reasons"):
+        return card["decision_reasons"][0]
     verdict = badge(card)
     gyro = card.get("verification") or {}
     if verdict == "DUPLICATE":
@@ -57,6 +61,8 @@ def plain_reason(card: dict) -> str:
 
 
 def reason_time(card: dict) -> float:
+    if "decision_timestamp_s" in card:
+        return float(card["decision_timestamp_s"])
     for check in card.get("checks", []):
         if card["status"] != "ACCEPT" and check.get("passed") is False and check.get("flags"):
             return float(check["flags"][0][0])
@@ -130,8 +136,9 @@ def render_report(cards: dict[str, dict], analysis: dict, root: Path) -> str:
     counts = Counter(badge(card) for card in cards.values())
     approved = [card for card in cards.values() if badge(card) in ("APPROVED", "CUT")]
     minutes = sum(card.get("usable_seconds", 0.) for card in approved) / 60
-    headline = (f"{len(cards)} clips in → {len(approved)} approved ({minutes:.1f} min usable) · "
-                f"{counts['REJECTED']} rejected · {counts['DUPLICATE']} duplicates · {counts['NOT VERIFIED']} not verified")
+    verified = sum((card.get("verification") or {}).get("passed") is True for card in approved)
+    headline = (f"{len(cards)} clips in → {len(approved)} approved ({verified} sensor-verified, {minutes:.1f} min usable) · "
+                f"{counts['NEEDS REVIEW']+counts['NOT VERIFIED']} need review · {counts['REJECTED']} rejected · {counts['DUPLICATE']} duplicates")
     max_x = max([abs(p["x"]) for p in analysis.get("map", [])] + [.01])
     max_y = max([abs(p["y"]) for p in analysis.get("map", [])] + [.01])
     points, positions = [], []
@@ -188,8 +195,11 @@ def render_report(cards: dict[str, dict], analysis: dict, root: Path) -> str:
                                (("video_path", "Download video"), ("sensors_path", "Retimed sensors"), ("frame_map_path", "Frame timestamp map"), ("manifest_path", "Edit manifest")) if export.get(key))
         map_rows = "".join(f"<tr><td>{segment['source_start_s']:.3f}–{segment['source_end_s']:.3f}s</td><td>{segment['output_start_s']:.3f}–{segment['output_end_s']:.3f}s</td></tr>" for segment in export.get("plan", {}).get("kept_segments", []))
         technical = esc(json.dumps({key: card.get(key) for key in ("quality_score", "claude_status", "claude_usage", "claude_review", "manifest_entry", "gyro_alignment", "fixture_kind")}, indent=2))
+        tag = ""
+        if verdict in ("APPROVED", "CUT"):
+            tag = "<p style='color:#46d6a0'>sensor-verified</p>" if gyro.get("passed") is True else "<p style='color:#a9b8ca'>not sensor-verified</p>"
         panels.append(f"""<article id='{esc(clip_id)}'><div class='card-heading'><h2>{esc(clip_id)}</h2><span class='badge' style='--badge:{color}'>{verdict}</span></div>
-<p class='reason'>{esc(plain_reason(card))} <button class='time-link' data-player='{esc(player)}' data-seek='{moment:.6f}'>↗ {timestamp(moment)}</button></p>
+<p class='reason'>{esc(plain_reason(card))} <button class='time-link' data-player='{esc(player)}' data-seek='{moment:.6f}'>↗ {timestamp(moment)}</button></p>{tag}
 <p class='usable'>{card.get('usable_seconds',0.):.1f} usable seconds <small>· estimated from sampled evidence</small></p>
 <div class='comparison'><section><h3>Original</h3>{original}<div class='cut-bar' aria-label='Cut segments shaded'>{bars}</div><small>{'Shaded sections are removed from the output.' if cuts else 'No cuts applied.'}</small></section><section><h3>{edited_label}</h3>{trimmed}</section></div>
 <div class='motion'>{sensor_visual}<p>{sensor_text}</p></div>
