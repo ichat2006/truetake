@@ -52,11 +52,15 @@ def is_public_directory(path):
 
 def catalog_metadata():
     import csv
-    path=ROOT/'data/manifest_v2.csv'
-    if not path.exists():return {}
-    with path.open(newline='') as handle:
-        return {row['clip_id']:{'license':row['license'],'source':row['source'],
-            'media_modified':row.get('media_modified',False),'manifest_entry':row} for row in csv.DictReader(handle)}
+    result={}
+    for path in [ROOT/'data/manifest_v2.csv',ROOT/'outputs/manifest_v2_additions.csv']:
+        if not path.exists():continue
+        with path.open(newline='') as handle:
+            for row in csv.DictReader(handle):
+                if row['clip_id'] in result:raise ValueError('Duplicate manifest clip id: '+row['clip_id'])
+                result[row['clip_id']]={'license':row['license'],'source':row['source'],
+                    'media_modified':row.get('media_modified',False),'manifest_entry':row}
+    return result
 
 def resolve_cached_path(value):
     path=Path(value).resolve()

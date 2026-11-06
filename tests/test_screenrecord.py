@@ -31,3 +31,26 @@ def test_example_uses_one_hand_and_plain_idle_text():
         rules = {r['id']: r for r in contract['process']}
         assert rules['one_hand_visible']['measurement'] == 'hand_present'
         assert rules['idle']['description'] == 'No idle stretch over 3 s'
+
+
+def test_known_insertion_shifts_goal_evidence_and_drops_sensor_claims():
+    import json
+    import numpy as np
+    import pandas as pd
+    from test_lab_quality import lab_table
+    from truetake.cached_insert import transfer_insert_cache
+    parent=lab_table(15)
+    before=json.dumps(parent.iloc[0]['claude_review'],sort_keys=True)
+    t=np.arange(0,20,.1)
+    target=pd.DataFrame({'t':t,'sample_end':t+.1,'source_frame':np.arange(len(t))*3,
+                         'sensor_present':False,'imu_valid':False})
+    target['contract']=pd.Series([parent.iloc[0]['contract']]+[None]*(len(t)-1),dtype=object)
+    target['clip_meta']=pd.Series([{}]+[None]*(len(t)-1),dtype=object)
+    actual=transfer_insert_cache(parent,target)
+    review=actual.iloc[0]['claude_review']
+    assert review['goal']==parent.iloc[0]['claude_review']['goal']
+    import pytest
+    assert review['evidence'][-1]['t']==pytest.approx(19.9)
+    assert not actual.sensor_present.any()
+    assert actual.loc[(actual.t>=8)&(actual.t<13),'people_status'].eq('skipped_dark').all()
+    assert json.dumps(parent.iloc[0]['claude_review'],sort_keys=True)==before

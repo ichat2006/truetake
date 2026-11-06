@@ -27,7 +27,7 @@ let chrome,ws,send;
  await wait("document.querySelector('#yaml-preview')?.textContent.includes('schema_version: 2')");
  await evaluate("document.querySelector('#load-example').click()");await delay(300);await shot('01_define.png');
  await evaluate("document.querySelector('#use-checklist').click()");await wait("document.body.dataset.step==='2'");
- await evaluate("document.querySelector('#load-demo').click()");await wait("document.querySelectorAll('.clip-card').length===5");
+ await evaluate("document.querySelector('#load-demo').click()");await wait("document.querySelectorAll('.clip-card').length>=5");
  await wait("[...document.querySelectorAll('.thumbnail img')].every(i=>i.complete&&i.naturalWidth>0)");await shot('02_footage.png');
  await evaluate("document.querySelector('#start-review').click()");await wait("document.body.dataset.step==='3'");await delay(100);await shot('03_reviewing.png');
  await wait("document.body.dataset.step==='4'||document.querySelector('#message').classList.contains('error')",240000);

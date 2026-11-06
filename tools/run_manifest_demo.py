@@ -29,7 +29,8 @@ WASH = ROOT / "contracts/wash_dishes.yaml"
 def read_entries() -> list[dict]:
     preferred=ROOT/'data/manifest_v2.csv'
     if preferred.is_file():
-        with preferred.open(newline='') as handle:return list(csv.DictReader(handle))
+        from truetake.licenses import catalog_metadata
+        return [item['manifest_entry'] for item in catalog_metadata().values()]
     rows = []
     paths = [ROOT / "data/manifest.csv", ROOT / "data/clips/variants/manifest.csv"]
     overnight = ROOT / "data/clips/variants/overnight_manifest.csv"

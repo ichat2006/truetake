@@ -234,6 +234,9 @@ def render_report(cards: dict[str, dict], analysis: dict, root: Path) -> str:
             cuts=[{'start_s':a,'end_s':b} for a,b in card.get('excluded_intervals',[])]
         duration = max(float(card.get("duration_s", 0.)), .001)
         bars = "".join(f"<button class='cut' style='left:{100*cut['start_s']/duration:.3f}%;width:{100*(cut['end_s']-cut['start_s'])/duration:.3f}%' data-player='{esc(player)}' data-seek='{cut['start_s']:.6f}' title='Removed: {cut['start_s']:.1f}–{cut['end_s']:.1f} seconds'></button>" for cut in cuts)
+        if card.get('demo_gap'):
+            a,b=card['demo_gap']
+            bars=f"<button class='cut' style='opacity:.45;left:{100*a/duration:.3f}%;width:{100*(b-a)/duration:.3f}%' data-player='{esc(player)}' data-seek='{a:.6f}' title='Inserted black gap: {a:g}–{b:g} s; lighter edges are retained context'></button>"+bars
         original = f"<video id='{esc(player)}' controls preload='metadata' src='{link(card['preview_path'])}'></video>" if not card.get('media_hidden') else "<div class='empty-player'>Licence does not allow displaying this media.</div>"
         trimmed = f"<video id='{esc(edited_player)}' controls preload='metadata' src='{link(export['video_path'])}'></video>" if export.get("video_path") else "<div class='empty-player'>No approved output for this clip.</div>"
         edited_label = "Trimmed" if cuts else "Retained copy — no cuts" if export.get("video_path") else "Output"
@@ -263,6 +266,7 @@ def render_report(cards: dict[str, dict], analysis: dict, root: Path) -> str:
         panels.append(f"""<article id='{esc(clip_id)}'><div class='card-heading'><h2>{esc(clip_id)}</h2><span class='badge' style='--badge:{color}'>{verdict}</span></div>
 <p class='reason'>{esc(plain_reason(card))} <button class='time-link' data-player='{esc(player)}' data-seek='{moment:.6f}'>↗ {timestamp(moment)}</button></p>{tag}{eligibility_line}
 <p class='usable'>{card.get('usable_seconds',0.):.1f} usable seconds <small>· estimated from sampled evidence</small></p>
+{('<p>Demo fixture · wash dishes checklist · cached evidence from unchanged parent content; timestamps shifted. Black gap 8–13 s. Conservative trimming retains context at each edge.</p>' if card.get('demo_gap') else '')}
 <div class='comparison'><section><h3>Original</h3>{original}{credit}<div class='cut-bar' aria-label='Cut segments shaded'>{bars}</div><small>{'Shaded sections are proposals only; licence forbids modification.' if cuts and not card.get('license_permissions',{}).get('modify',True) else 'Shaded sections are removed from the output.' if cuts else 'No cuts applied.'}</small></section><section><h3>{'Proposed cut' if cuts else edited_label}</h3>{trimmed}{credit}</section></div>
 <div class='motion'>{sensor_visual}<p>{sensor_text}</p></div>
 <details><summary>Technical details, scores and evidence</summary><p>Meets the task checklist: {card.get('quality_score',0.):.1f}/100 decided-rule agreement; not an acceptance probability.</p><p>How different from other clips: {analysis.get('scene_distinctness',{}).get(clip_id,0.):.1f}/100 relative appearance difference.</p><ul>{checks}</ul><div class='frames'>{evidence}</div><p>{downloads}</p>

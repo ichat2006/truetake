@@ -18,7 +18,7 @@ def test_config_and_licence_cleared_demo(client):
     config=client.get('/api/config').json()
     assert config['example']['schema_version']==2
     demo=client.get('/api/demo').json()
-    assert len(demo['recommended'])==5
+    assert len(demo['recommended'])>=5
     assert 'splice_P03_109_P04_104' in demo['recommended']
     assert not any(c['source']=='hub' or c['clip_id']=='basic_fold_1_black_gap' for c in demo['clips'])
     assert client.post('/api/demo',json={'clip_ids':['basic_fold_1_black_gap']}).status_code==403

@@ -33,3 +33,7 @@ Licence policy lives in `contracts/licenses.yaml`; true origins are in local `da
 The local cached corpus/model weights are intentionally not committed. A fresh checkout can upload files, but needs the existing pipeline model assets to process uncached footage; Load demo set requires the local permitted catalogue.
 
 Run state is in memory; outputs persist on disk. After a server restart, start a new review rather than expecting an old browser session to resume. Cached compatible work is reused. Original dataset licences are locked even when the same bytes are uploaded under a different filename.
+
+## Licensed cut fixture
+
+`uv run python -m tools.make_screenrecord_cut` creates a permitted EPIC black-gap fixture under outputs. Its extra manifest row is in `outputs/manifest_v2_additions.csv`, merged with the immutable `data/manifest_v2.csv`. The parent washing goal evidence is reused only for this known insertion, with evidence timestamps and frame IDs shifted and validated. Sensors and sensor-verification claims are removed. Basic encoded-frame image statistics are measured locally; no new model calls are made. The mixed-task demo labels this fixture with its saved washing checklist. Existing conservative trimming retains one second at each gap edge: the full 8–13 s defect is shaded, while the darker inner band shows the actual cut. Any NEEDS REVIEW verdict is retained.

@@ -71,6 +71,8 @@ def recommended(cards):
         ordered=sorted(cards.items(),key=lambda pair:pair[1].get('manifest_entry',{}).get('attack')!='splice')
         found=next((name for name,card in ordered if name not in chosen and predicate(name,card)),None)
         if found:chosen.append(found)
+    cut=next((name for name,c in cards.items() if c.get('demo_gap') and (c.get('export') or {}).get('video_path')),None)
+    if cut:chosen.insert(0,cut)
     return chosen
 
 def public_clip(item):
@@ -215,6 +217,9 @@ def process_clip(run,item,contract):
         checks,quality=evaluate(table,contract);card.update(quality,checks=[asdict(c) for c in checks])
     card=apply_license({**card,**{k:item.get(k) for k in ['license','source','media_modified'] if k in item}},contract)
     card['known_origin']=item.get('known_origin',False)
+    if cached:
+        for key in ['demo_gap','cache_provenance','task_contract']:
+            if key in cached:card[key]=cached[key]
     if cached and cached.get('preview_path') and Path(cached['preview_path']).is_file() and same_plan(cached.get('privacy_blur_intervals'),card.get('privacy_blur_intervals')):
         card.update(preview_path=cached['preview_path'],presentation_preview_ready=True)
     card.update(video_path=str(Path(rec.video_path).resolve()),sensors_path=item.get('sensors_path'),
@@ -235,7 +240,11 @@ def run_job(run,contract):
     with WORKER_LOCK:
         run['status']='running';cards={};tables={}
         for item in run['clips']:
-            try:card=process_clip(run,item,contract)
+            try:
+                clip_contract=contract
+                if run.get('demo') and item.get('demo_gap'):
+                    clip_contract=load_contract(item['task_contract'])
+                card=process_clip(run,item,clip_contract)
             except Exception as error:
                 message=re.sub('sk'+r'-ant[\w-]+','[redacted]',str(error))[:500]
                 item['error']=type(error).__name__+': '+message
