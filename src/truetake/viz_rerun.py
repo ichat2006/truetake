@@ -16,6 +16,9 @@ from truetake.models import Recording
 DISPLAY_WIDTH = 960
 JPEG_QUALITY = 90
 PRIVACY_BLUR_KERNEL = 51
+NORMALIZATION_EPSILON = 1e-8
+KEEP_COLOR = [70, 220, 150]
+CUT_COLOR = [250, 110, 100]
 HAND_CONNECTIONS = [(0, 1), (1, 2), (2, 3), (3, 4), (0, 5), (5, 6), (6, 7), (7, 8),
                     (5, 9), (9, 10), (10, 11), (11, 12), (9, 13), (13, 14), (14, 15),
                     (15, 16), (13, 17), (0, 17), (17, 18), (18, 19), (19, 20)]
@@ -40,6 +43,46 @@ def save_batch_map(analysis: dict, path: str) -> None:
         stream.disconnect()
 
 
+def aligned_motion(table: pd.DataFrame, alignment: dict) -> dict:
+    """Display mapped, lag-adjusted signals in standard deviations, not physical equivalence."""
+    from truetake.verify_gyro import prepare_signals, _interpolate, VIDEO_AXES
+    if not alignment.get('axis_mapping') or alignment.get('offset_s') is None:
+        return {}
+    if not {'flow_t','flow_status',*VIDEO_AXES} <= set(table):
+        return {}
+    grid,videos=prepare_signals(table)
+    traces={}
+    for axis in ['flow_pan','flow_roll']:
+        pair=alignment['axis_mapping'][axis]
+        if pair['axis'] not in table:continue
+        gyro=_interpolate(table.t.to_numpy(),table[pair['axis']].to_numpy(),
+                          grid+alignment['offset_s'])*pair['sign']
+        signals=[]
+        for values in [videos[VIDEO_AXES.index(axis)],gyro]:
+            valid=np.isfinite(values)
+            result=values.copy()
+            if valid.any():
+                result[valid]=(values[valid]-values[valid].mean())/max(values[valid].std(),NORMALIZATION_EPSILON)
+            signals.append(result)
+        traces[axis]=(grid,*signals)
+    return traces
+
+
+def segment_rows(duration: float, card: dict) -> list[dict]:
+    """Only applied export cuts are red; compiled proposals are never called cuts."""
+    cuts=(card.get('export') or {}).get('plan',{}).get('applied_cuts',[])
+    rows=[];cursor=0.
+    for cut in cuts:
+        start,end=cut['start_s'],cut['end_s']
+        if start>cursor:rows.append({'start':cursor,'end':start,'kind':'KEEP','reason':'Retained original footage'})
+        reasons=[check['reason'] for check in card.get('checks',[]) for flag in check.get('flags',[])
+                 if isinstance(flag,(list,tuple)) and flag[0]<end and flag[1]>start]
+        rows.append({'start':start,'end':end,'kind':'CUT','reason':reasons[0] if reasons else 'Compiled unusable interval'})
+        cursor=end
+    if cursor<duration:rows.append({'start':cursor,'end':duration,'kind':'KEEP','reason':'Retained original footage'})
+    return rows
+
+
 def save_recording(rec: Recording, table: pd.DataFrame, card: dict, path: str) -> str:
     stream = rr.RecordingStream("TrueTake", recording_id=rec.clip_id)
     stream.save(path)
@@ -47,9 +90,14 @@ def save_recording(rec: Recording, table: pd.DataFrame, card: dict, path: str) -
         stream.send_blueprint(rrb.Blueprint(rrb.Horizontal(
             rrb.Spatial2DView(origin="/video/image", name="Clip and hands"),
             rrb.Vertical(rrb.TextDocumentView(origin="/review/card", name="Review"),
-                         rrb.TimeSeriesView(origin="/signals", name="Measured signals")),
+                         rrb.TimeSeriesView(origin="/signals/quality", name="Image quality"),
+                         rrb.TimeSeriesView(origin="/signals/hands", name="Hands"),
+                         rrb.TimeSeriesView(origin="/signals/motion", name="Motion"),
+                         rrb.TimeSeriesView(origin="/aligned", name="Video / mapped gyro (standard deviations)"),
+                         rrb.Spatial2DView(origin="/segments", name="Kept / cut — original seconds")),
             column_shares=[2, 1]), rrb.TimePanel(timeline="clip", state="expanded"), collapse_panels=True))
-        lines = [f"# {rec.clip_id}", f"**Status: {card.get('status', 'REVIEW')}**",
+        from truetake.presentation import badge, plain_reason
+        lines = [f"# {badge(card)} — {plain_reason(card)}", f"**{rec.clip_id}**",
                  f"Contract score: {card.get('quality_score', 'pending')} / 100 (not an acceptance probability)",
                  f"Estimated usable: {card.get('usable_seconds', 0):.1f} s",
                  card.get("usable_evidence_kind", ""),
@@ -83,11 +131,36 @@ def save_recording(rec: Recording, table: pd.DataFrame, card: dict, path: str) -
                     points = np.array(hand["points"])[:, :2] * [width, height]
                     strips.extend([points[[a, b]] for a, b in HAND_CONNECTIONS])
                 stream.log("video/image/hands", rr.LineStrips2D(strips, colors=[70, 230, 170], radii=1.0))
-            for column in ("brightness", "blur_var", "frame_change", "hand_count", "hands_inside",
-                           "face_confidence", "flow_pan", "flow_tilt", "flow_roll",
-                           "gx", "gy", "gz", "ax", "ay", "az"):
-                if column in table and pd.notna(table.at[row, column]):
-                    stream.log(f"signals/{column}", rr.Scalars(float(table.at[row, column])))
+            for group, columns in {'quality':['brightness','blur_var'], 'hands':['hand_count','hands_inside'],
+                                   'motion':['frame_change']}.items():
+                for column in columns:
+                    if column in table and pd.notna(table.at[row,column]):
+                        stream.log(f"signals/{group}/{column}",rr.Scalars(float(table.at[row,column])))
+        for axis,(grid,video,gyro) in aligned_motion(table,card.get('gyro_alignment') or {}).items():
+            stream.log(f'aligned/{axis}/video',rr.SeriesLines(colors=[100,196,255],names=f'{axis}: video'),static=True)
+            stream.log(f'aligned/{axis}/gyro',rr.SeriesLines(colors=[244,199,119],names=f'{axis}: mapped gyro'),static=True)
+            for t,v,g in zip(grid,video,gyro):
+                stream.set_time('clip',duration=float(t))
+                # Explicit NaNs break gaps rather than connecting missing motion.
+                stream.log(f'aligned/{axis}/video',rr.Scalars(float(v)))
+                stream.log(f'aligned/{axis}/gyro',rr.Scalars(float(g)))
+        segments=segment_rows(float(rec.meta['duration_s']),card)
+        stream.log('segments',rr.Boxes2D(
+            centers=[[(part['start']+part['end'])/2,0] for part in segments],
+            half_sizes=[[(part['end']-part['start'])/2,.5] for part in segments],
+            colors=[KEEP_COLOR if part['kind']=='KEEP' else CUT_COLOR for part in segments],
+            labels=[f"{part['kind']} {part['start']:.1f}–{part['end']:.1f}s: {part['reason']}" for part in segments],
+            show_labels=True),static=True)
+        for part in segments:
+            stream.set_time('clip',duration=part['start'])
+            stream.log('review/segments',rr.TextLog(f"{part['kind']} {part['start']:.1f}–{part['end']:.1f}s: {part['reason']}"))
+        review=card.get('claude_review') or {}
+        evidence={item['id']:item for item in review.get('evidence',[])}
+        for step in review.get('steps',[]):
+            for key in step.get('evidence_ids',[]):
+                if key in evidence:
+                    stream.set_time('clip',duration=float(evidence[key]['t']))
+                    stream.log('review/steps',rr.TextLog(step['name']))
         for check in card.get("checks", []):
             for flag in check["flags"]:
                 start, end, note = flag if isinstance(flag, (tuple, list)) else (flag["start_s"], flag["end_s"], flag["note"])
