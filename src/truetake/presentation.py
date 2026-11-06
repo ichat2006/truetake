@@ -83,6 +83,23 @@ def timestamp(seconds: float) -> str:
     return f"{int(seconds)//60}:{int(seconds)%60:02d}"
 
 
+def motion_check(card: dict) -> str:
+    if not card.get('sensor_present'):
+        return 'No motion data — not sensor-verified'
+    from truetake.calibration import MIN_AXIS_PEAK
+    alignment=card.get('gyro_alignment') or {}
+    passed=(card.get('verification') or {}).get('passed')
+    status='matched' if passed is True else 'mismatch' if passed is False else 'inconclusive'
+    offset=alignment.get('offset_s')
+    clock=(f'{offset:+.1f}'.replace('-','−')+' s') if offset is not None and np.isfinite(offset) else 'unavailable'
+    axes=[]
+    for axis in ['pan','roll','tilt']:
+        score=alignment.get('axis_scores',{}).get('flow_'+axis)
+        value=f'{score:.2f}'+(' (weak)' if score<MIN_AXIS_PEAK else '') if score is not None and np.isfinite(score) else 'unavailable'
+        axes.append(axis+' '+value)
+    return 'Gyro ↔ video: '+status+' · clock offset '+clock+' · '+' · '.join(axes)
+
+
 def select_start_here(cards: dict) -> list[dict]:
     """Pick five honest inspection stops; missing requested outcomes stay explicit."""
     from truetake.licenses import apply_license
@@ -270,7 +287,7 @@ def render_report(cards: dict[str, dict], analysis: dict, root: Path) -> str:
 <p class='usable'>{card.get('usable_seconds',0.):.1f} usable seconds <small>· estimated from sampled evidence</small></p>
 {('<p>Demo fixture · wash dishes checklist · cached evidence from unchanged parent content; timestamps shifted. Black gap 8–13 s. Conservative trimming retains context at each edge.</p>' if card.get('demo_gap') else '')}
 <div class='comparison'><section><h3>Original</h3>{original}{credit}<div class='cut-bar' aria-label='Cut segments shaded'>{bars}</div><small>{'Shaded sections are proposals only; licence forbids modification.' if cuts and not card.get('license_permissions',{}).get('modify',True) else 'Shaded sections are removed from the output.' if cuts else 'No cuts applied.'}</small></section><section><h3>{'Proposed cut' if cuts else edited_label}</h3>{trimmed}{credit}</section></div>
-<div class='motion'>{sensor_visual}<p>{sensor_text}</p></div>
+<p class='motion-check'>{esc(motion_check(card))}</p><div class='motion'>{sensor_visual}<p>{sensor_text}</p></div>
 <details><summary>Technical details, scores and evidence</summary><p>Meets the task checklist: {card.get('quality_score',0.):.1f}/100 decided-rule agreement; not an acceptance probability.</p><p>How different from other clips: {analysis.get('scene_distinctness',{}).get(clip_id,0.):.1f}/100 relative appearance difference.</p><ul>{checks}</ul><div class='frames'>{evidence}</div><p>{downloads}</p>
 <details><summary>Original → edited timestamp map</summary><table><tr><th>Original</th><th>Output</th></tr>{map_rows}</table></details>
 {artifacts}

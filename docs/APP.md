@@ -57,3 +57,5 @@ That command can incur API cost; it was not executed during the cache-only final
 ## Time-saved estimate
 
 The results panel defaults to **2.0 minutes per clip** and **$25/hour**, both explicitly labelled as assumptions and editable. Human hours without TrueTake are all clips × minutes/60; with TrueTake they are unresolved clips × minutes/60. Approved/rejected clips are counted as automatic decisions; duplicates are shown separately and require no repeat full review. Unattended computation time is excluded. Dollar savings subtract logged AI cost when available. A cached run has zero new calls/tokens and $0 new AI cost; unpriced live calls display an unknown cost rather than a fabricated price. The per-1,000 projection assumes the same review and cache-use rates; it is not an accuracy or throughput benchmark.
+
+Sensor cards show the stored gyro verdict, clock offset and per-axis scores directly. Scores below the existing calibration `MIN_AXIS_PEAK` are labelled weak; this label changes no verification threshold or verdict. Video-only cards explicitly say “No motion data — not sensor-verified”.

@@ -51,13 +51,15 @@ let chrome,ws,send;
  console.log('MAP THUMBNAILS',JSON.stringify(thumbnails));
  const cut=await evaluate("(()=>{const d=document.querySelector('#report').contentDocument;const c=d.querySelector('article[id$=\"_black_gap\"]');return c?{players:c.querySelectorAll('video').length,cut:c.textContent.includes('Proposed cut'),gap:!!c.querySelector('[title*=\"8–13\"]')}:null})()");
  if(cut&&(!cut.cut||cut.players!==2||!cut.gap))throw Error('Cut example missing side-by-side media or shaded gap: '+JSON.stringify(cut));
+ const motion=await evaluate("(()=>{const d=document.querySelector('#report').contentDocument;return {sensor:d.querySelector('#splice_P03_109_P04_104 .motion-check')?.textContent,no_sensor:d.querySelector('#basic_fold_1 .motion-check')?.textContent}})()");
+ if(!motion.sensor?.includes('clock offset')||motion.no_sensor!=='No motion data — not sensor-verified')throw Error('Motion-check lines missing: '+JSON.stringify(motion));
  const result=await evaluate("(async()=>{let run=await(await fetch('/api/runs/'+currentRun.id)).json();return {passed:run.status==='complete'&&run.runtime_api_calls===0&&run.detector_runs===0,run_id:run.id,counts:run.counts,runtime_api_calls:run.runtime_api_calls,detector_runs:run.detector_runs,report_url:run.report_url,start_tiles:document.querySelector('#report').contentDocument.querySelectorAll('.start-tile').length,clips:run.clips.map(c=>({clip_id:c.clip_id,verdict:c.verdict,license:c.license,cached:c.cached})),summary:document.querySelector('#result-title').textContent}})()");
  result.savings=await evaluate("currentRun.savings||null");
  fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));
  if(!result.passed)process.exitCode=1;
  if(process.argv.includes('--examine')||process.env.TRUETAKE_EXAMINE==='1'){
   const examined=[];
-  for(const [cid,file] of [['splice_P03_109_P04_104','05_examine_splice.png'],['P22_109_1851_1911_black_gap','06_examine_review.png']]){
+  for(const [cid,file] of [['splice_P03_109_P04_104','05_examine_splice.png'],['P22_109_1851_1911_black_gap','06_examine_review.png'],['basic_fold_1','07_examine_original_only.png']]){
    await evaluate(`document.querySelector('#report').contentDocument.querySelector('[data-examine="${cid}"]').click()`);
    await wait("document.querySelector('#examine-modal').open&&document.querySelector('#examine-viewer').src.includes('/viewer/0.42.0/')",120000);
    await wait("document.querySelector('#examine-viewer').contentDocument?.querySelector('canvas')",120000);

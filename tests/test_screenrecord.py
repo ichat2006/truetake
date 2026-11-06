@@ -64,3 +64,15 @@ def test_missing_goal_recovery_selects_only_missing_reviews(tmp_path):
     for name,goal in [('yes','yes'),('no','no'),('unsure','unsure'),('missing',None)]:
         (tmp_path/(name+'.json')).write_text(json.dumps({'card':{'claude_review':{'goal':{'verdict':goal}}}}))
     assert [p.stem for p in missing_results(tmp_path)]==['missing']
+
+
+def test_motion_line_uses_stored_scores_and_does_not_invent_sensor_proof():
+    from truetake.presentation import motion_check
+    assert motion_check({'sensor_present':False})=='No motion data — not sensor-verified'
+    card={'sensor_present':True,'verification':{'passed':True},'gyro_alignment':{'offset_s':-.3,
+        'axis_scores':{'flow_pan':.61,'flow_roll':.78,'flow_tilt':.21}}}
+    assert motion_check(card)=='Gyro ↔ video: matched · clock offset −0.3 s · pan 0.61 · roll 0.78 · tilt 0.21 (weak)'
+    card['verification']['passed']=False
+    assert 'mismatch' in motion_check(card)
+    card['gyro_alignment']={};card['verification']['passed']=None
+    assert 'inconclusive' in motion_check(card) and 'unavailable' in motion_check(card)
