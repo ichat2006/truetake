@@ -1,10 +1,12 @@
 default_license: unknown
+public_directories: [outputs/demo, outputs/submission_demo]
 intended_uses:
   research: {permission: analyze, label: research}
   noncommercial_training: {permission: train_noncommercial, label: noncommercial training}
   commercial_training: {permission: train_commercial, label: commercial training}
 licenses:
   own:
+    declared_source: own
     analyze: true
     show_original: true
     modify: true
@@ -13,6 +15,7 @@ licenses:
     train_commercial: true
     credit_line: ''
   CC-BY-NC-4.0:
+    declared_source: epic
     analyze: true
     show_original: true
     modify: true
@@ -21,6 +24,7 @@ licenses:
     train_commercial: false
     credit_line: 'EPIC-KITCHENS-100 — CC BY-NC 4.0'
   CC-BY-NC-ND:
+    declared_source: egodex
     analyze: true
     show_original: true
     modify: false
@@ -30,6 +34,7 @@ licenses:
     train_commercial: false
     credit_line: 'EgoDex, Apple — CC BY-NC-ND'
   hub-egocentric-eval:
+    declared_source: hub
     analyze: true
     show_original: false
     modify: false
@@ -38,6 +43,7 @@ licenses:
     train_commercial: false
     credit_line: 'Hub egocentric eval — evaluation only'
   unknown:
+    declared_source: unknown
     analyze: true
     show_original: false
     modify: false

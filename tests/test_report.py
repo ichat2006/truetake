@@ -48,7 +48,7 @@ def test_report_is_offline_escapes_text_and_links_evidence(tmp_path, monkeypatch
     text = Path(path).read_text()
     assert "&lt;unknown&gt;" in text
     assert "<unknown>" not in text
-    assert "href='clip.rrd'" in text
+    assert "href='clip.rrd'" not in text  # No broken link to an ungenerated recording.
     assert "No approved clips" in text
     assert "Claude evidence comparison" not in text
     assert "Local detector funnel" not in text

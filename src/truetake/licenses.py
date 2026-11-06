@@ -38,12 +38,17 @@ def apply_license(card,contract=None):
     result.update(license=license_id,intended_use=intended,media_modified=modified,
         license_permissions=rights,credit_line=rights['credit_line'],
         eligibility={'eligible':eligible,'intended_use':intended,'line':label},
-        public_media_allowed=bool(public),media_display_allowed=bool(rights['show_original'] and not privacy_conflict and (not modified or rights['modify'])),
+        public_media_allowed=bool(public),media_display_allowed=bool(rights['show_original'] and not privacy_conflict and (not modified or rights['modify']) and not card.get('processing_error')),
         public_exclusion='; '.join(reasons))
     return result
 
 def may_export(card):
     return apply_license(card)['license_permissions']['modify']
+
+def is_public_directory(path):
+    target=Path(path).resolve()
+    return any((ROOT/name).resolve()==target or (ROOT/name).resolve() in target.parents
+               for name in policy().get('public_directories',[]))
 
 def catalog_metadata():
     import csv

@@ -77,7 +77,8 @@ def timestamp(seconds: float) -> str:
 
 def select_start_here(cards: dict) -> list[dict]:
     """Pick five honest inspection stops; missing requested outcomes stay explicit."""
-    visible={name:card for name,card in cards.items() if card.get('source')!='hub'}
+    from truetake.licenses import apply_license
+    visible={name:card for name,card in cards.items() if apply_license(card)['public_media_allowed']}
     selected=[]
     def add(name,role,limitation=''):
         if name is None:return
@@ -247,8 +248,9 @@ def render_report(cards: dict[str, dict], analysis: dict, root: Path) -> str:
         eligibility=card.get('eligibility',{})
         eligibility_line=f"<p class='eligibility' data-eligible='{str(eligibility.get('eligible',False)).lower()}'>ELIGIBILITY · {esc(eligibility.get('line','Not assessed'))}</p>"
         credit=f"<p class='credit'>{esc(card.get('credit_line',''))}</p>" if card.get('credit_line') else ''
-        artifacts=(f"<p><a href='{link(card['rerun_path'])}'>Rerun recording</a> · <a href='{link(card['card_path'])}'>Card JSON</a> · <a href='{link(card['table_path'])}'>Per-frame table</a></p>"
-                   if card.get('license_permissions',{}).get('modify',True) and not card.get('media_hidden') else '<p>Modified media artifacts withheld by licence.</p>')
+        artifact_links=[f"<a href='{link(card[key])}'>{label}</a>" for key,label in [('rerun_path','Rerun recording'),('card_path','Card JSON'),('table_path','Per-frame table')]
+                        if card.get(key) and Path(card[key]).is_file()]
+        artifacts=('<p>'+' · '.join(artifact_links)+'</p>' if card.get('license_permissions',{}).get('modify',True) and not card.get('media_hidden') else '<p>Modified media artifacts withheld by licence.</p>')
         if verdict in ("APPROVED", "CUT"):
             tag = "<p style='color:#46d6a0'>sensor-verified</p>" if gyro.get("passed") is True else "<p style='color:#a9b8ca'>not sensor-verified</p>"
         panels.append(f"""<article id='{esc(clip_id)}'><div class='card-heading'><h2>{esc(clip_id)}</h2><span class='badge' style='--badge:{color}'>{verdict}</span></div>

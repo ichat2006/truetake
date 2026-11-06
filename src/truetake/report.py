@@ -43,6 +43,9 @@ def write_batch_report(cards: dict[str, dict], batch: dict, output_dir: str) -> 
     for card in cards.values():
         from truetake.licenses import apply_license
         card.update(apply_license(card))
+        if not card['license_permissions']['modify']:
+            from truetake.export import omitted_entry
+            card['export']=omitted_entry(card)
         spans = card.get("privacy_blur_intervals", [])
         if not card['media_display_allowed']:
             card.update(media_hidden=True,thumbnails=[],preview_path='')

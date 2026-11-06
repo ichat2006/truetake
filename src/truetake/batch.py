@@ -122,6 +122,14 @@ def run_batch(input_dir: str, contract_path: str, output_dir: str, include_dupli
         sensors = video.with_name(video.stem + "_sensors.csv")
         try:
             rec = load_recording(str(video), str(sensors) if sensors.is_file() else None)
+            if progress:progress('Read file','done')
+            from truetake.licenses import apply_license
+            rights=apply_license({'clip_id':clip_id,'status':'REVIEW',**(media_metadata or {}).get(clip_id,{})},contract)
+            if not rights['license_permissions']['analyze']:raise ValueError('Licence does not permit analysis')
+            from truetake.licenses import is_public_directory
+            if is_public_directory(output) and not rights['public_media_allowed']:
+                raise ValueError('Licence requires a private analysis output directory; public media is forbidden')
+            if progress:progress('Licence','done');progress('Quality','running')
             key = detector_version + fingerprint([video] + ([sensors] if sensors.is_file() else []))
             cache_name = "detectors.onepass" if detector_mode == "onepass" else "detectors"
             cache = clip_dir / f"{cache_name}.json"
@@ -156,9 +164,12 @@ def run_batch(input_dir: str, contract_path: str, output_dir: str, include_dupli
                 cache.write_text(table.to_json(orient="records", double_precision=15), encoding="utf-8")
                 cache_key.write_text(key)
             table.at[table.index[0], "contract"] = contract
+            if progress:
+                progress('Quality','cached' if cached else 'done');progress('Hands','cached' if cached else 'done');progress('Camera motion','running')
             # Verification has its own profile on every run and also runs for
             # clips that Claude or the task checks subsequently reject.
             table, verification = verify_recording(rec, table, profile)
+            if progress:progress('Camera motion','done');progress('Phone sensor','done');progress('AI review','running')
             prompt = "review_v2.md" if contract.get("schema_version", 1) == 2 else "review_v1.md"
             if review_mode == "focused":
                 if detector_mode == "multipass":
@@ -167,6 +178,7 @@ def run_batch(input_dir: str, contract_path: str, output_dir: str, include_dupli
             table = detect_claude(table, str(output / "claude_cache"), str(SOURCE_ROOT / "prompts" / prompt), model,
                                   rec=rec, evidence_dir=str(clip_dir))
             checks, quality = check_quality(table)
+            if progress:progress('AI review','cached' if table.iloc[0].get('claude_status')=='cached' else 'done')
             checks.extend(verification)
             quality = apply_verification_quality(quality, verification)
             from truetake.verdicts import apply_verdict
@@ -180,6 +192,7 @@ def run_batch(input_dir: str, contract_path: str, output_dir: str, include_dupli
                         table_path=str(clip_dir / "frames.json"), rerun_path=str(clip_dir / "timeline.rrd"),
                         detector_cache_hit=cached, detector_fingerprint=detector_version)
             tables[clip_id], recordings[clip_id], cards[clip_id] = table, rec, card
+            if progress:progress('Verdict','done')
             print(f"{clip_id}: {quality['status']}; quality {quality['quality_score']:.1f}; AI {card['claude_status']}; cached={cached}", flush=True)
         except (OSError, ValueError, RuntimeError) as error:
             errors.append({"clip_id": clip_id, "error": str(error)})

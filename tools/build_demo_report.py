@@ -86,10 +86,12 @@ def publish_subset(saved: dict, target: Path, public: bool) -> str:
     analysis = analyze_batch(tables, cards)
     included = set(cards)
     analysis["errors"] = [error for error in saved["analysis"].get("errors", []) if error["clip_id"] in included]
-    analysis["skipped"] = [row for row in saved["analysis"].get("skipped", []) if not public or row.get("source") != "hub"]
+    from truetake.licenses import catalog_metadata
+    metadata=catalog_metadata()
+    analysis["skipped"] = [row for row in saved["analysis"].get("skipped", []) if not public or apply_license(metadata.get(row['clip_id'],{}))['public_media_allowed']]
     wanted = load_contract(str(ROOT / "contracts/mercor_folding.yaml"))["value"]["wanted_variations"]
     analysis["film_next"] = suggest_next(cards, wanted)
-    analysis["scope"] = "Public-facing: Hub excluded" if public else "Internal evaluation; includes any available Hub clips"
+    analysis["scope"] = "Public-facing: licence-filtered" if public else "Private analysis; media display follows licence permissions"
     analysis["gyro_profile"] = str(ROOT / "outputs/profiles/gopro_epic_calibrated.json")
     analysis['start_here']=select_start_here(cards)
     collection = write_collection_manifest({name: card.get("export", {}) for name, card in cards.items()}, str(target / "exports"))

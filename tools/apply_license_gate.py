@@ -6,6 +6,7 @@ import subprocess
 import sys
 from truetake.licenses import apply_license
 from truetake.export import omitted_entry
+from truetake.contracts import load_contract
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -18,7 +19,7 @@ if __name__=='__main__':
         card=payload['card'] if payload else {'clip_id':row['clip_id'],'status':'REVIEW'}
         before=(card.get('status'),card.get('verdict'),card.get('decision_reasons'))
         card.update(source=row['source'],license=row['license'],manifest_entry=row,media_modified=row['media_modified'])
-        card=apply_license(card,{'intended_use':'research'})
+        card=apply_license(card,load_contract(str(ROOT/'contracts/mercor_folding.yaml')))
         if not card['license_permissions']['modify']:card['export']=omitted_entry(card)
         assert before==(card.get('status'),card.get('verdict'),card.get('decision_reasons'))
         if payload:

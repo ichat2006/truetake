@@ -36,7 +36,9 @@ def compare(rows,cards):
             'missing_results':sum(r['verdict']=='MISSING RESULT' for r in results)}
 
 def markdown(result,public=False):
-    rows=[r for r in result['rows'] if not public or r['source']!='hub']
+    from truetake.licenses import catalog_metadata,apply_license
+    metadata=catalog_metadata()
+    rows=[r for r in result['rows'] if not public or apply_license(metadata.get(r['clip_id'],{}))['public_media_allowed']]
     text=['# Test-label agreement','',result['line'],'',
           'No accuracy percentage is reported when the comparable denominator is zero. Unknown completion labels are not inferred from activity names or from attack=none.',
           '',f"Label status: verified {result['label_status_counts'].get('verified',0)}; unverified {result['label_status_counts'].get('unverified',0)}. Comparable: verified {result['comparable_label_status_counts'].get('verified',0)}; unverified {result['comparable_label_status_counts'].get('unverified',0)}.",

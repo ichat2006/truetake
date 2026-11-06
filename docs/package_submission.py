@@ -21,7 +21,9 @@ VIDEO_HEIGHT=480
 VIDEO_CRF=30
 TIMEOUT_S=600
 MAX_DEMO_BYTES=100_000_000
-RESTRICTED=re.compile(r'\bhub\b|hub_|hubdata|egocentric-iphone',re.I)
+def forbidden_identifiers():
+    from truetake.licenses import catalog_metadata,apply_license
+    return {name for name,meta in catalog_metadata().items() if not apply_license(meta)['public_media_allowed']}
 
 def digest(path):
     result=hashlib.sha256()
@@ -85,7 +87,9 @@ def build():
         DEST.rename(previous)
     DEST.mkdir(parents=True)
     batch=json.loads((ROOT/'outputs/demo/batch.json').read_text())
-    cards=deepcopy({name:card for name,card in batch['cards'].items() if card.get('source')!='hub' and not RESTRICTED.search(name)})
+    from truetake.licenses import apply_license
+    cards=deepcopy({name:card for name,card in batch['cards'].items() if apply_license(card)['public_media_allowed']})
+    forbidden=forbidden_identifiers()
     stops=batch['analysis']['start_here']
     selected={item['clip_id'] for item in stops}
     if len(selected)!=5 or not selected<=set(cards):raise ValueError('Expected five public Start-here clips')
@@ -116,7 +120,7 @@ def build():
         card['manifest_entry']={k:entry.get(k) for k in ['source','license','label_status']}
     analysis={k:deepcopy(batch['analysis'].get(k)) for k in ['map','scene_distinctness','film_next','value_ranking','start_here']}
     text=finalize_html(render_report(cards,analysis,DEST),selected)
-    if RESTRICTED.search(text):raise ValueError('Restricted-source identifier in public HTML')
+    if any(name in text for name in forbidden):raise ValueError('Restricted-source identifier in public HTML')
     (DEST/'index.html').write_text(text)
     from final_agreement import markdown
     agreement=json.loads((FINAL/'agreement.json').read_text())
@@ -148,11 +152,11 @@ No restricted-source media, thumbnails or identifiers are included. Project code
     prefix='sk'+'-ant'
     for path in DEST.rglob('*'):
         if not path.is_file():continue
-        if RESTRICTED.search(str(path.relative_to(DEST))) or path.name.startswith('.env') or 'data' in path.relative_to(DEST).parts:
+        if any(name in str(path.relative_to(DEST)) for name in forbidden) or path.name.startswith('.env') or 'data' in path.relative_to(DEST).parts:
             raise ValueError('Forbidden bundle path')
         if path.suffix in {'.html','.md','.json','.csv','.svg'}:
             contents=path.read_text()
-            if RESTRICTED.search(contents) or prefix in contents:raise ValueError('Forbidden identifier or credential prefix in bundle text')
+            if any(name in contents for name in forbidden) or prefix in contents:raise ValueError('Forbidden identifier or credential prefix in bundle text')
     archive=FINAL/'truetake_demo.zip'
     with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as output:
         for path in sorted(DEST.rglob('*')):

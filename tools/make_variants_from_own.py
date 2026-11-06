@@ -3,9 +3,17 @@ import argparse
 import csv
 from pathlib import Path
 import subprocess
-from overnight_variants import insertion_filter
 
 ROOT=Path(__file__).resolve().parents[1]
+INSERT_AT_S=8.0
+
+def insertion_filter(kind,seconds):
+    mode='add' if kind=='black_gap' else 'clone'
+    color=':color=black' if kind=='black_gap' else ''
+    return (f'[0:v]split=2[a][b];[a]trim=end={INSERT_AT_S},setpts=PTS-STARTPTS,'
+        f'tpad=stop_mode={mode}:stop_duration={seconds}{color}[prefix];'
+        f'[b]trim=start={INSERT_AT_S},setpts=PTS-STARTPTS[tail];'
+        '[prefix][tail]concat=n=2:v=1:a=0[v]')
 
 def create(video,name,split):
     from truetake.licenses import permissions
@@ -18,6 +26,7 @@ def create(video,name,split):
     if Path(name).name!=name or not name:raise ValueError('Use a simple clip name')
     video=Path(video).resolve()
     if not video.is_file():raise FileNotFoundError(video)
+    if parent and Path(parent['video_path']).resolve()!=video:raise ValueError('Video path differs from the registered parent')
     if not parent:
         parent={key:'' for key in fields}
         parent.update(clip_id=name,source='own',collection='own',participant='self',video_path=str(video),

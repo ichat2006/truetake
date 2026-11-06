@@ -23,7 +23,7 @@ from truetake.value import suggest_next
 
 
 def card(root, name="clip", status="ACCEPT"):
-    return {"clip_id": name, "status": status, "quality_score": 100., "usable_seconds": 12., "duration_s": 20.,
+    return {"clip_id": name, "status": status, "license":"own", "quality_score": 100., "usable_seconds": 12., "duration_s": 20.,
             "sensor_present": False, "checks": [], "thumbnails": [{"t": 1., "path": str(root / "thumb.jpg")}],
             "video_path": str(root / "video.mp4"), "preview_path": str(root / "video.mp4"),
             "rerun_path": str(root / "clip.rrd"), "card_path": str(root / "card.json"),
@@ -90,6 +90,7 @@ def test_public_publication_excludes_hub_from_html_json_and_assets(tmp_path):
     for name, source in [("own_example", "own"), ("private_hub_example", "hub")]:
         sample = card(inputs, name)
         sample["source"] = source
+        sample['license']='hub-egocentric-eval' if source=='hub' else 'own'
         sample["export"] = {"export_status": "not_exported", "eligible_for_training": False}
         sample["thumbnails"] = []
         sample["table_path"] = str(inputs / (name + ".json"))
