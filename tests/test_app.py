@@ -99,6 +99,15 @@ def test_examine_viewer_is_pinned_and_unknown_clips_are_rejected(client):
     assert client.get('/viewer/0.0.1/index.html').status_code==404
     assert client.get('/api/examine/not-a-run/missing').status_code==404
 
+def test_examine_preserves_credit_and_labels_static_original_preview(client,tmp_path,monkeypatch):
+    import app.main as main
+    timeline=tmp_path/'timeline.rrd';timeline.with_suffix('.preview.jpg').write_bytes(b'thumbnail fixture')
+    monkeypatch.setattr(main,'ensure_recording',lambda run,item:timeline)
+    run=s.create_run([{'clip_id':'original','license':'CC-BY-NC-ND'}])
+    result=client.get(f"/api/examine/{run['id']}/original").json()
+    assert result['credit_line']=='EgoDex, Apple — CC BY-NC-ND'
+    assert result['preview_kind']=='static'
+
 def test_savings_endpoint_recomputes_assumptions_without_changing_verdicts(client):
     run=s.create_run([{'clip_id':'clip_'+str(i),'license':'own'} for i in range(6)])
     run['counts']={'APPROVED':1,'REJECTED':1,'NEEDS REVIEW':3,'DUPLICATE':1}

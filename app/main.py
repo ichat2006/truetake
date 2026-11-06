@@ -39,7 +39,9 @@ def examine(rid:str,cid:str):
     try:path=ensure_recording(run,item)
     except PermissionError as error:raise HTTPException(403,str(error))
     except ValueError as error:raise HTTPException(409,str(error))
-    return {'version':RERUN_VERSION,'rrd_url':f'/runs/{rid}/{cid}/timeline.rrd','viewer_url':f'/viewer/{RERUN_VERSION}/'}
+    return {'version':RERUN_VERSION,'rrd_url':f'/runs/{rid}/{cid}/timeline.rrd','viewer_url':f'/viewer/{RERUN_VERSION}/',
+            'credit_line':apply_license(item)['credit_line'],
+            'preview_kind':'static' if path.with_suffix('.preview.jpg').is_file() else 'video'}
 
 @app.post('/api/preview')
 async def preview(request:Request):
