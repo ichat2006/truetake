@@ -71,6 +71,24 @@ def check_lab_quality(table: pd.DataFrame) -> tuple[list[CheckResult], dict]:
         goal_times = [evidence[key]["t"] for key in review.get("goal", {}).get("evidence_ids", [])]
         if b > a and not any(a - context <= time <= b + context for time in goal_times):
             cuts.append((a, b))
+    # Exact black / repeated-frame runs are local detector evidence. Sparse
+    # semantic observations cannot establish these intervals by themselves.
+    from truetake.measured import defaults, ranges
+    limits = {**defaults()['measurement'], **contract.get('measurement', {})}
+    idle_rule = rules.get('idle', {})
+    if (config.get('exclude_flagged_intervals', True)
+            and idle_rule.get('on_failure') == 'exclude_interval'):
+        for column, maximum in [('brightness', limits['black_mean_max']),
+                                ('frame_change', limits['freeze_change_max'])]:
+            if column not in table:
+                continue
+            for start, end in ranges(table, table[column].to_numpy() <= maximum):
+                if (end-start > idle_rule['max_idle_s'] and start > 0 and end < duration
+                        and end-start > 2*context):
+                    cuts.append((start+context, end-context))
+                    add('process.local_unusable_time', True,
+                        f'{column} stayed at or below {maximum:g}; preserved {context:g}s context at each edge',
+                        spans=[(start,end)])
     cuts = merge_intervals(cuts)
     usable = []
     cursor = 0.
@@ -133,7 +151,7 @@ def check_lab_quality(table: pd.DataFrame) -> tuple[list[CheckResult], dict]:
                 bool(face_spec.get("reject_whole_clip", False)), "reject", privacy)
     seconds = sum(b - a for a, b in usable)
     if cuts:
-        add("process.excluded_time", True, "conservative exclusion supported by targeted evidence", spans=cuts)
+        add("process.excluded_time", True, "conservative exclusion supported by targeted or local unusable-frame evidence", spans=cuts)
     minimum = config.get("min_usable_seconds")
     if minimum is not None:
         add("process.usable_duration", seconds + TIME_TOLERANCE_S >= minimum,

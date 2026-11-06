@@ -28,7 +28,11 @@ WASH = ROOT / "contracts/wash_dishes.yaml"
 
 def read_entries() -> list[dict]:
     rows = []
-    for path in [ROOT / "data/manifest.csv", ROOT / "data/clips/variants/manifest.csv"]:
+    paths = [ROOT / "data/manifest.csv", ROOT / "data/clips/variants/manifest.csv"]
+    overnight = ROOT / "data/clips/variants/overnight_manifest.csv"
+    if overnight.is_file():
+        paths.append(overnight)
+    for path in paths:
         with path.open(newline="") as handle:
             rows += list(csv.DictReader(handle))
     if len({row["clip_id"] for row in rows}) != len(rows):
