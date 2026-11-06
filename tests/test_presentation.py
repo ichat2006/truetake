@@ -1,7 +1,24 @@
 import json
 from pathlib import Path
 
-from truetake.presentation import badge, render_report
+from truetake.presentation import badge, render_report,select_start_here
+
+def test_start_here_uses_actual_pending_cut_and_unconfirmed_wrong_task(tmp_path):
+    names=['cut','splice_P03_109_P04_104','original','original_controlled_reupload','review','clip_wrong_task']
+    cards={name:card(tmp_path,name,'REVIEW') for name in names}
+    for value in cards.values():value['verdict']='NEEDS REVIEW'
+    cards['cut']['export']={'plan':{'applied_cuts':[{'start_s':9.,'end_s':12.}]}}
+    cards['splice_P03_109_P04_104'].update(status='REJECT',verdict='REJECTED')
+    cards['original_controlled_reupload']['fixture_kind']='controlled duplicate'
+    selected=select_start_here(cards)
+    assert len(selected)==5 and selected[0]['clip_id']=='cut'
+    assert selected[0]['verdict']=='NEEDS REVIEW' and '3 s cut' in selected[0]['caption']
+    assert selected[0]['limitation']
+    assert selected[-1]['verdict']=='NEEDS REVIEW' and selected[-1]['limitation']
+    text=render_report(cards,{'map':[]},tmp_path)
+    assert text.count("class='start-tile'")==5
+    assert text.index('Start here')<text.index('Film next:')
+    assert "href='#original'" in text and 'sensor tag' in text
 from truetake.value import suggest_next
 
 

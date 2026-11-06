@@ -75,6 +75,51 @@ def timestamp(seconds: float) -> str:
     return f"{int(seconds)//60}:{int(seconds)%60:02d}"
 
 
+def select_start_here(cards: dict) -> list[dict]:
+    """Pick five honest inspection stops; missing requested outcomes stay explicit."""
+    visible={name:card for name,card in cards.items() if card.get('source')!='hub'}
+    selected=[]
+    def add(name,role,limitation=''):
+        if name is None:return
+        card=visible[name]
+        caption=f'{badge(card).title()} — {plain_reason(card)}'
+        cuts=(card.get('export') or {}).get('plan',{}).get('applied_cuts',[])
+        if role=='cut':
+            seconds=sum(cut['end_s']-cut['start_s'] for cut in cuts)
+            caption=f'{badge(card).title()} — {seconds:g} s cut. {plain_reason(card)}'
+        pair=name.removesuffix('_controlled_reupload') if card.get('fixture_kind') else None
+        selected.append({'clip_id':name,'role':role,'verdict':badge(card),'caption':caption,
+                         'limitation':limitation,'pair_clip_id':pair if pair in visible else None})
+    cut=[name for name,card in visible.items() if (card.get('export') or {}).get('plan',{}).get('applied_cuts')]
+    approved=next((name for name in cut if badge(visible[name])=='CUT'),None)
+    fallback=approved or next(iter(cut),None) or next((name for name,card in visible.items() if badge(card)=='APPROVED'),None)
+    add(fallback,'cut','No approved trimmed clip is available; this is the actual saved outcome.' if not approved else '')
+    add('splice_P03_109_P04_104' if 'splice_P03_109_P04_104' in visible else None,'splice')
+    add(next((name for name,card in visible.items() if card.get('fixture_kind')),None),'duplicate')
+    chosen={item['clip_id'] for item in selected}
+    review=[name for name,card in visible.items() if badge(card)=='NEEDS REVIEW' and name not in chosen and not name.endswith('_wrong_task')]
+    add(next((name for name in review if (visible[name].get('verification') or {}).get('passed') is True),next(iter(review),None)),'review')
+    wrong=[name for name in visible if name.endswith('_wrong_task')]
+    wrong_name=next((name for name in wrong if badge(visible[name])=='REJECTED'),next(iter(wrong),None))
+    add(wrong_name,'wrong_task','The wrong-task example is not confirmed rejected in the saved results.' if wrong_name and badge(visible[wrong_name])!='REJECTED' else '')
+    return selected
+
+
+def render_start_here(cards: dict, items: list[dict], root: Path) -> str:
+    tiles=[]
+    for item in items:
+        name=item['clip_id'];card=cards[name]
+        thumbs=card.get('thumbnails',[])
+        image=thumbs[len(thumbs)//2]['path'] if thumbs else None
+        visual=f"<img src='{html.escape(os.path.relpath(image,root),quote=True)}' alt='{html.escape(name,quote=True)}'>" if image else ''
+        pair=f"<a class='pair-link' href='#{html.escape(item['pair_clip_id'],quote=True)}'>Compare original: {html.escape(item['pair_clip_id'])}</a>" if item.get('pair_clip_id') else ''
+        tiles.append(f"<div class='start-tile' style='border-color:{COLORS[item['verdict']]}'><a href='#{html.escape(name,quote=True)}'>{visual}<strong>{html.escape(item['caption'])}</strong></a>{pair}</div>")
+    warnings=' '.join(dict.fromkeys(item['limitation'] for item in items if item.get('limitation')))
+    return ("<section class='start-here'><h2>Start here</h2><div class='start-grid'>"+''.join(tiles)+"</div>"
+            +f"<p class='start-note'>{html.escape(warnings)}</p>"
+            +"<p class='start-note'>Green: approved · blue: approved with cuts · amber: needs review · red: rejected · purple: duplicate. Green sensor tag: gyro agrees; grey tag: not conclusively sensor-verified. Needs review is a pending decision, not a claim that a human has reviewed it.</p></section>")
+
+
 def motion_plot(card: dict, root: Path) -> str | None:
     if card.get("clip_id") == "splice_P03_109_P04_104":
         evidence = Path(__file__).resolve().parents[2] / "outputs/splice_gyro/windows.csv"
@@ -211,14 +256,16 @@ def render_report(cards: dict[str, dict], analysis: dict, root: Path) -> str:
     ranking = "".join(f"<li>{esc(item['clip_id'])}: {esc(item['reason'])}</li>" for item in analysis.get("value_ranking", [])) or "<li>No approved clips available yet.</li>"
     diagnostics = esc(json.dumps({key: value for key, value in analysis.items() if key != "distance_matrix"}, indent=2))
     return document(headline, str(analysis.get("film_next", "Record a new task setup or technique to expand the collection.")),
-                    legend, "".join(points), "".join(panels), ranking, diagnostics)
+                    legend, "".join(points), "".join(panels), ranking, diagnostics,
+                    render_start_here(cards,analysis.get('start_here') or select_start_here(cards),root))
 
 
-def document(headline: str, next_clip: str, legend: str, points: str, panels: str, ranking: str, diagnostics: str) -> str:
+def document(headline: str, next_clip: str, legend: str, points: str, panels: str, ranking: str, diagnostics: str, start_here: str = '') -> str:
     return f"""<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
 <title>TrueTake — clip review</title><style>
 :root{{color-scheme:dark;--ink:#edf3fa;--muted:#a9b8ca;--line:#2b394b}}*{{box-sizing:border-box}}body{{margin:0;background:#0b111b;color:var(--ink);font:16px system-ui,sans-serif}}main{{max-width:1320px;margin:auto;padding:38px 28px 70px}}header{{padding:24px 0 36px}}.brand{{font-weight:800;letter-spacing:-.04em;font-size:26px}}.brand b{{color:#46d6a0}}h1{{font-size:clamp(30px,4.3vw,58px);line-height:1.14;max-width:1180px;font-weight:650;letter-spacing:-.04em;margin:25px 0}}.next{{font-size:19px;color:#c8e7d9}}h2{{font-size:21px;overflow-wrap:anywhere}}h3{{font-size:14px;color:var(--muted);font-weight:500}}p{{line-height:1.55}}a,.time-link{{color:#8dd4ff}}.box,article{{border:1px solid var(--line);background:#111c2a;border-radius:18px;padding:25px;margin-bottom:24px}}.map{{width:100%;display:block;background:radial-gradient(ellipse at center,#18283c,#0f1825);border-radius:12px;min-height:300px}}.map text{{font-size:10px;fill:#c7d4e5}}.legend{{display:flex;gap:20px;flex-wrap:wrap;font-size:12px;color:var(--muted)}}.legend i{{width:9px;height:9px;display:inline-block;border-radius:3px;margin-right:7px}}.card-heading{{display:flex;align-items:center;justify-content:space-between;gap:20px}}.badge{{color:var(--badge);border:1px solid var(--badge);background:#0c1520;padding:7px 12px;border-radius:20px;font-size:12px;font-weight:750;white-space:nowrap}}.reason{{font-size:18px;max-width:1000px}}button{{font:inherit;cursor:pointer}}.time-link{{border:0;background:transparent;padding:0 6px}}.usable{{font-size:23px;font-weight:650;margin:14px 0 24px}}small{{font-size:12px;color:var(--muted);font-weight:400}}.comparison{{display:grid;grid-template-columns:1fr 1fr;gap:22px}}video{{width:100%;display:block;aspect-ratio:16/9;background:#080c13;border-radius:9px}}.empty-player{{display:grid;place-content:center;aspect-ratio:16/9;border:1px dashed #36475c;border-radius:9px;color:var(--muted);padding:20px;text-align:center}}.cut-bar{{height:10px;position:relative;background:#267458;border-radius:6px;margin:12px 0 6px;overflow:hidden}}.cut{{position:absolute;height:100%;top:0;border:0;background:repeating-linear-gradient(135deg,#b14747,#b14747 4px,#6d3037 4px,#6d3037 8px)}}.motion{{display:flex;align-items:center;gap:22px;margin:24px 0 8px}}.motion p{{font-size:14px;color:var(--muted)}}.motion-plot{{width:280px;max-width:45%;border-radius:8px}}details{{margin:22px 0 4px;color:var(--muted)}}summary{{cursor:pointer;font-size:13px}}details p,li{{font-size:13px;line-height:1.6}}pre{{font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:380px;overflow:auto;background:#0a121e;padding:18px;border-radius:8px}}.frames{{display:flex;gap:9px;overflow:auto;margin-top:18px}}figure{{margin:0;flex:none}}figure img{{width:140px;border-radius:6px;cursor:pointer}}figcaption{{font-size:11px}}table{{border-collapse:collapse;font-size:12px}}td,th{{padding:8px 18px;border-bottom:1px solid var(--line)}}footer{{font-size:12px;color:var(--muted)}}@media(max-width:760px){{main{{padding:20px 14px}}.comparison{{grid-template-columns:1fr}}.card-heading{{align-items:flex-start}}.box,article{{padding:17px}}.map{{min-height:220px}}.motion{{flex-direction:column;align-items:flex-start}}.motion-plot{{max-width:100%}}}}
-</style></head><body><main><header><div class='brand'>True<b>Take</b></div><h1>{html.escape(headline)}</h1><p class='next'>Film next: {html.escape(next_clip)}</p></header>
+.start-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}}.start-tile{{border:2px solid;border-radius:12px;background:#111c2a;overflow:hidden}}.start-tile>a{{display:block;text-decoration:none;color:var(--ink)}}.start-tile img{{display:block;width:100%;aspect-ratio:16/9;object-fit:cover}}.start-tile strong{{display:block;padding:13px;font-size:14px;line-height:1.45}}.start-tile .pair-link{{padding:0 13px 13px;font-size:12px;color:#8dd4ff}}.start-note{{font-size:12px;color:var(--muted)}}
+</style></head><body><main><header><div class='brand'>True<b>Take</b></div><h1>{html.escape(headline)}</h1>{start_here}<p class='next'>Film next: {html.escape(next_clip)}</p></header>
 <section class='box'><h2>How different from other clips</h2><p>Each point is one clip. Nearby thumbnails show similar scenes and task actions; the axes are not quality scores. Click a thumbnail to open its result.</p><svg class='map' viewBox='0 0 {MAP_WIDTH} {MAP_HEIGHT}' aria-label='Clip similarity map'>{points}</svg><div class='legend'>{legend}</div></section>
 {panels}<details><summary>Collection details and provenance</summary><ul>{ranking}</ul><pre>{diagnostics}</pre></details><footer>TrueTake · task checklist, motion verification and collection value</footer></main>
 <script>document.addEventListener('click',function(e){{const item=e.target.closest('[data-seek]');if(!item)return;const v=document.getElementById(item.dataset.player);if(!v)return;const seek=()=>{{v.currentTime=Number(item.dataset.seek)}};if(v.readyState>=1)seek();else v.addEventListener('loadedmetadata',seek,{{once:true}});v.scrollIntoView({{behavior:'smooth',block:'center'}});}});</script></body></html>"""

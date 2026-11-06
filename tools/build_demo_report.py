@@ -12,7 +12,7 @@ from PIL import Image, ImageFilter
 from truetake.contracts import load_contract
 from truetake.export import write_collection_manifest
 from truetake.preview import browser_preview
-from truetake.presentation import badge, plain_reason
+from truetake.presentation import badge, plain_reason, select_start_here
 from truetake.report import write_batch_report, write_json
 from truetake.value import analyze_batch, suggest_next
 from truetake.viz_rerun import save_batch_map
@@ -77,6 +77,7 @@ def publish_subset(saved: dict, target: Path, public: bool) -> str:
     analysis["film_next"] = suggest_next(cards, wanted)
     analysis["scope"] = "Public-facing: Hub excluded" if public else "Internal evaluation; includes any available Hub clips"
     analysis["gyro_profile"] = str(ROOT / "outputs/profiles/gopro_epic_calibrated.json")
+    analysis['start_here']=select_start_here(cards)
     collection = write_collection_manifest({name: card.get("export", {}) for name, card in cards.items()}, str(target / "exports"))
     analysis["exports"] = {key: value for key, value in collection.items() if key != "entries"}
     save_batch_map(analysis, str(target / "batch_map.rrd"))
