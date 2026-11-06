@@ -30,6 +30,8 @@ def create():
         print('Existing overnight manifest retained', flush=True)
         return
     parent = rows['basic_fold_1']
+    from truetake.licenses import permissions
+    if not permissions(parent.get('license'))['modify']:raise ValueError('Licence forbids these variants')
     additions=[]
     for kind, seconds in INSERTIONS.items():
         clip_id='basic_fold_1_'+kind

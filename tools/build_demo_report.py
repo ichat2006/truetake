@@ -16,6 +16,7 @@ from truetake.presentation import badge, plain_reason, select_start_here
 from truetake.report import write_batch_report, write_json
 from truetake.value import analyze_batch, suggest_next
 from truetake.viz_rerun import save_batch_map
+from truetake.licenses import apply_license,resolve_cached_path
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,7 +25,7 @@ THUMBNAIL_BLUR_RADIUS = 24
 
 
 def copy_asset(source: str, target: Path) -> str:
-    source = Path(source).resolve()
+    source = resolve_cached_path(source)
     if source == target.resolve():
         return str(target)
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -36,23 +37,36 @@ def copy_asset(source: str, target: Path) -> str:
 
 def publish_subset(saved: dict, target: Path, public: bool) -> str:
     target.mkdir(parents=True, exist_ok=True)
-    cards = deepcopy({name: card for name, card in saved["cards"].items()
-                      if not public or card.get("source") != "hub"})
+    licensed={name:apply_license(card) for name,card in saved['cards'].items()}
+    cards = deepcopy({name: card for name, card in licensed.items()
+                      if not public or card['public_media_allowed']})
     tables = {}
     for name, card in cards.items():
         directory = target / name
         directory.mkdir(exist_ok=True)
         tables[name] = pd.DataFrame(json.loads(Path(card["table_path"]).read_text()))
-        card["table_path"] = copy_asset(card["table_path"], directory / "frames.json")
-        if Path(card["rerun_path"]).is_file():
+        rights=card['license_permissions']
+        if not rights['modify']:
+            from truetake.export import omitted_entry
+            card['export']=omitted_entry(card)
+        if rights['modify'] and card['media_display_allowed']:
+            card["table_path"] = copy_asset(card["table_path"], directory / "frames.json")
+        if rights['modify'] and card['media_display_allowed'] and Path(card["rerun_path"]).is_file():
             card["rerun_path"] = copy_asset(card["rerun_path"], directory / "timeline.rrd")
         card["card_path"] = str(directory / "card.json")
+        if not card['media_display_allowed']:
+            card.update(media_hidden=True,thumbnails=[],preview_path='')
+            write_json(card['card_path'],card)
+            continue
         preview = card.get("preview_path")
-        if not preview or not Path(preview).is_file():
+        if not rights['modify']:
+            preview=card['video_path']
+        elif not preview or not Path(preview).is_file():
             preview = browser_preview(card["video_path"], str(target / "previews"), card.get("privacy_blur_intervals", []))
         card["preview_path"] = copy_asset(preview, target / "media" / (name + "_original.mp4"))
         card["presentation_preview_ready"] = True
         for index, image in enumerate(card.get("thumbnails", [])):
+            image['path']=str(resolve_cached_path(image['path']))
             destination = directory / "evidence" / f"{index:04d}.jpg"
             needs_blur = any(a <= image["t"] <= b for a, b in card.get("privacy_blur_intervals", []))
             if needs_blur and not image.get("unredacted_path"):
@@ -94,6 +108,25 @@ def publish_subset(saved: dict, target: Path, public: bool) -> str:
         writer = csv.DictWriter(handle, fieldnames=["clip_id", "source", "reason"])
         writer.writeheader()
         writer.writerows(analysis["skipped"])
+    # Remove historical public assets that are no longer permitted, not just links.
+    permitted={target/name for name in ['index.html','batch.json','summary.csv','skipped.csv','batch_map.rrd']}
+    permitted.add(target/'exports/collection.json')
+    for name,card in cards.items():
+        paths=[card.get(key) for key in ['card_path','table_path','rerun_path','preview_path']]
+        if not card['license_permissions']['modify']:
+            paths=[card.get('card_path'),card.get('preview_path')]
+        paths += [item['path'] for item in card.get('thumbnails',[])]
+        paths += [card.get('export',{}).get(key) for key in ['video_path','frame_map_path','sensors_path','manifest_path']]
+        paths += [str(target/'motion'/(name+'.svg'))]
+        permitted.update(Path(path).resolve() for path in paths if path and target.resolve() in Path(path).resolve().parents)
+    for path in target.rglob('*'):
+        if path.is_file() and path.resolve() not in {p.resolve() for p in permitted}:
+            archive=ROOT/'outputs/retired_public'/target.name/path.relative_to(target)
+            archive.parent.mkdir(parents=True,exist_ok=True)
+            if archive.exists():
+                import uuid
+                archive=archive.with_name(archive.stem+'_'+uuid.uuid4().hex[:8]+archive.suffix)
+            path.rename(archive)
     return report
 
 

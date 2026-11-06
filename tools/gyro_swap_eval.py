@@ -23,7 +23,7 @@ from truetake.verify_gyro import measure_alignment
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MANIFEST = ROOT / "data/manifest.csv"
+DEFAULT_MANIFEST = ROOT / "data/manifest_v2.csv"
 DEFAULT_OUTPUT = ROOT / "outputs/gyro_swap_eval.csv"
 HISTOGRAM_BINS = 20
 PLOT_DPI = 120

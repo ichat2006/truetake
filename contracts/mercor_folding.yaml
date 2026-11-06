@@ -1,5 +1,6 @@
 draft: false
 schema_version: 2
+intended_use: research
 task: Fold a garment
 collection_purpose: First-person demonstrations for robot manipulation training
 lab_instructions: Keep the garment and meaningful folding actions understandable in

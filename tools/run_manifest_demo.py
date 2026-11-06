@@ -27,6 +27,9 @@ WASH = ROOT / "contracts/wash_dishes.yaml"
 
 
 def read_entries() -> list[dict]:
+    preferred=ROOT/'data/manifest_v2.csv'
+    if preferred.is_file():
+        with preferred.open(newline='') as handle:return list(csv.DictReader(handle))
     rows = []
     paths = [ROOT / "data/manifest.csv", ROOT / "data/clips/variants/manifest.csv"]
     overnight = ROOT / "data/clips/variants/overnight_manifest.csv"
@@ -119,13 +122,14 @@ def process_one(row: dict) -> dict:
         seed_caches(output, [row])
         result = run_batch(str(stage), str(FOLD if folding else WASH), str(output),
                            detector_mode="onepass", export=True, gyro_profile=str(PROFILE),
-                           clip_ids=[row["clip_id"]], render=False)
+                           clip_ids=[row["clip_id"]], render=False,
+                           media_metadata={row['clip_id']:{'manifest_entry':row,'license':row.get('license'),'source':row['source'],'media_modified':row.get('media_modified',False)}})
         card = result["cards"].get(row["clip_id"])
         if card is None:
             return save_result(row, None, result["analysis"]["errors"])
         card["task_contract"] = str(FOLD if folding else WASH)
         errors = result["analysis"]["errors"]
-    card.update(source=row["source"], split=row["split"], manifest_entry=row)
+    card.update(source=row["source"], split=row["split"], manifest_entry=row,license=row.get('license'),media_modified=row.get('media_modified',False))
     write_json(card["card_path"], card)
     return save_result(row, card, errors if row["attack"] != "controlled_reupload" else [])
 
@@ -178,6 +182,9 @@ def assemble_results() -> dict:
         errors.extend(result.get("errors", []))
         if result.get("card") is not None:
             cards[row["clip_id"]] = result["card"]
+            from truetake.licenses import apply_license
+            cards[row['clip_id']].update(source=row['source'],manifest_entry=row,license=row.get('license'),media_modified=row.get('media_modified',False))
+            cards[row['clip_id']]=apply_license(cards[row['clip_id']])
             tables[row["clip_id"]] = pd.DataFrame(json.loads(Path(result["card"]["table_path"]).read_text()))
     analysis = analyze_batch(tables, cards)
     analysis.update(errors=errors, skipped=missing, manifest_entries=len(entries), gyro_profile=str(PROFILE),

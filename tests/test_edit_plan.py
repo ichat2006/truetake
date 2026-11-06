@@ -14,7 +14,7 @@ def recording():
 
 
 def export_card(rec, status="ACCEPT", cuts=None):
-    return {"clip_id": rec.clip_id, "duration_s": rec.meta["duration_s"], "status": status,
+    return {"clip_id": rec.clip_id, "duration_s": rec.meta["duration_s"], "status": status,"license":"own",
             "completion_required": False, "excluded_intervals": cuts or [], "privacy_blur_intervals": [],
             "checks": [{"name": "process.excluded_time", "passed": True, "score": 1., "reason": "synthetic compiled exclusion", "flags": []}],
             "claude_review": {"evidence": [], "goal": {"evidence_ids": []}}}

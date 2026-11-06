@@ -57,7 +57,7 @@ FIELDS = [
     "label_status", "notes",
 ]
 PLAN = ROOT / "tools/clip_sources.json"
-MANIFEST = ROOT / "data/manifest.csv"
+MANIFEST = ROOT / "data/manifest_v2.csv"
 
 
 def read_url(url: str) -> bytes:

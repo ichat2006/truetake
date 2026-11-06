@@ -35,7 +35,7 @@ def test_lightweight_bundle_removes_other_videos_and_large_artifact_links(tmp_pa
 
 def test_report_is_offline_escapes_text_and_links_evidence(tmp_path, monkeypatch):
     monkeypatch.setattr("truetake.report.browser_preview", lambda video, destination, spans: video)
-    card = {"status": "REVIEW", "checks": [{"name": "goal.folded", "passed": None, "reason": "<unknown>", "flags": []}],
+    card = {"status": "REVIEW", "license":"own", "checks": [{"name": "goal.folded", "passed": None, "reason": "<unknown>", "flags": []}],
             "thumbnails": [], "quality_score": 70., "usable_seconds": 0., "claude_status": "missing_api_key",
             "rerun_path": str(tmp_path / "clip.rrd"), "card_path": str(tmp_path / "clip.json"),
             "table_path": str(tmp_path / "frames.json"), "video_path": str(tmp_path / "video.mp4")}

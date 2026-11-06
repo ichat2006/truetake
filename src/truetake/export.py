@@ -47,6 +47,10 @@ def output_root(path: str) -> Path:
 
 
 def omitted_entry(card: dict) -> dict | None:
+    from truetake.licenses import may_export
+    if not may_export(card):
+        return {'clip_id':card['clip_id'],'export_status':'not_exported','eligible_for_training':False,
+                'review_status':card['status'],'reason':'Licence does not permit modified media exports'}
     reason = "Controlled demo fixture is not independent training footage" if card.get("fixture_kind") else (
         "Rejected source clip is not repaired into an accepted task" if card["status"] == "REJECT" else None)
     if reason:
@@ -96,6 +100,10 @@ def export_clip(rec: Recording, card: dict, directory: str, table: pd.DataFrame 
     if Path(clip_id).name != clip_id or clip_id in ("", ".", ".."):
         raise ValueError("Clip ID must be a single path component.")
     plan = build_edit_plan(rec, card, table)
+    from truetake.licenses import apply_license
+    licensed=apply_license(card)
+    if not licensed['eligibility']['eligible']:
+        plan['eligible_for_training']=False
     source_hash = file_hash(Path(rec.video_path))
     sensor_hash = hashlib.sha256(rec.imu.to_csv(index=False, float_format="%.17g").encode()).hexdigest() if rec.imu is not None else None
     signature = {"version": EXPORT_VERSION, "source_sha256": source_hash, "sensor_sha256": sensor_hash,

@@ -48,8 +48,8 @@ def test_variants_are_real_encoded_files_and_sensor_copies_preserve_inputs(tmp_p
     rows = [dict(clip_id=name, source="own", participant="fixture", video_path="source.mp4",
                  sensors_path="other_sensors.csv" if name == "P22_109_1851_1911" else "source_sensors.csv",
                  task_expected="folding", goal_met_expected="unknown", split="test" if name == "basic_fold_1" else "train",
-                 attack="none", license="fixture", label_status="unverified", notes="") for name in sorted(names)]
-    manifest = tmp_path / "data/manifest.csv"
+                 attack="none", license="own", label_status="unverified", notes="") for name in sorted(names)]
+    manifest = tmp_path / "data/manifest_v2.csv"
     manifest.parent.mkdir()
     with manifest.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))

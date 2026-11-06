@@ -1,4 +1,5 @@
 review_band: 0.1
+intended_use: research
 review_band_seconds: 3.0
 review_upper_cap: 0.95
 close_calls_enabled: true

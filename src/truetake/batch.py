@@ -77,13 +77,16 @@ def fingerprint(paths: list[Path]) -> str:
 def run_batch(input_dir: str, contract_path: str, output_dir: str, include_duplicate: bool = False,
               model: str = MODEL, instructions: str = "", review_mode: str = "focused", compare_to: str | None = None,
               detector_mode: str = "multipass", export: bool = False, gyro_profile: str | None = None,
-              clip_ids: list[str] | None = None, render: bool = True) -> dict:
+              clip_ids: list[str] | None = None, render: bool = True, media_metadata: dict | None = None,
+              progress=None) -> dict:
     output = Path(output_dir).resolve()
     protected = (SOURCE_ROOT / "data").resolve()
     if output == protected or protected in output.parents:
         raise ValueError("Generated reports must be saved outside data/.")
     contract_file = Path(contract_path)
     contract = load_contract(str(contract_file), instructions)
+    from truetake.licenses import catalog_metadata
+    if media_metadata is None:media_metadata=catalog_metadata()
     profile = load_profile(gyro_profile) if gyro_profile else None
     baseline = json.loads(Path(compare_to).read_text()) if compare_to else None
     if review_mode not in ("baseline", "focused"):
@@ -169,6 +172,8 @@ def run_batch(input_dir: str, contract_path: str, output_dir: str, include_dupli
             from truetake.verdicts import apply_verdict
             checks, quality = apply_verdict(table, checks, quality)
             card = build_card(clip_id, table, checks, quality)
+            from truetake.licenses import apply_license
+            card=apply_license({**card,**(media_metadata or {}).get(clip_id,{})},contract)
             card["gyro_alignment"] = table.iloc[0].get("gyro_alignment")
             card.update(video_path=str(video.resolve()), card_path=str(clip_dir / "card.json"),
                         sensors_path=str(sensors.resolve()) if rec.imu is not None else None,
@@ -223,9 +228,9 @@ def run_batch(input_dir: str, contract_path: str, output_dir: str, include_dupli
         card["scene_distinctness"] = analysis["scene_distinctness"].get(clip_id)
         tables[clip_id].to_json(card["table_path"], orient="records", indent=2, double_precision=15)
         write_json(card["card_path"], card)
-        if render:
+        if render and card['license_permissions']['modify']:
             save_recording(recordings[clip_id], tables[clip_id], card, card["rerun_path"])
-        elif not Path(card["rerun_path"]).is_file():
+        elif card['license_permissions']['modify'] and not Path(card["rerun_path"]).is_file():
             temporary = Path(card["rerun_path"]).with_name(".timeline.recording.rrd")
             save_recording(recordings[clip_id], tables[clip_id], card, str(temporary))
             temporary.replace(card["rerun_path"])

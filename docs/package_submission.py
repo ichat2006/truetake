@@ -80,8 +80,8 @@ def build():
     FINAL.mkdir(parents=True,exist_ok=True)
     if DEST.exists():
         # Preserve prior generated output instead of deleting it or mixing stale assets.
-        previous=FINAL/'previous_submission_demo'
-        if previous.exists():raise FileExistsError('Previous bundle backup exists; refusing to mix generated assets')
+        import uuid
+        previous=FINAL/('previous_submission_demo_'+uuid.uuid4().hex[:8])
         DEST.rename(previous)
     DEST.mkdir(parents=True)
     batch=json.loads((ROOT/'outputs/demo/batch.json').read_text())
@@ -100,12 +100,14 @@ def build():
         original=batch['cards'][name]
         if name in selected:
             target=DEST/'media'/(name+'_original.mp4')
-            compact_video(original['preview_path'],target,cache)
+            if card.get('license_permissions',{}).get('modify',False):compact_video(original['preview_path'],target,cache)
+            else:
+                target.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(original['preview_path'],target)
             card['preview_path']=str(target);videos.append(str(target.relative_to(DEST)))
         else:card['preview_path']=card['thumbnails'][0]['path'] if card.get('thumbnails') else str(DEST/'omitted')
         old_export=original.get('export') or {}
         card['export']={k:v for k,v in old_export.items() if k in {'export_status','eligible_for_training','plan','output_duration_s','audio_policy','sensor_policy','post_edit_task_assessment','reason'}}
-        if name in selected and old_export.get('video_path'):
+        if name in selected and old_export.get('video_path') and card.get('license_permissions',{}).get('modify',False):
             suffix='_trimmed.mp4' if old_export.get('plan',{}).get('applied_cuts') else '_retained.mp4'
             target=DEST/'media'/(name+suffix)
             compact_video(old_export['video_path'],target,cache)
@@ -126,7 +128,7 @@ def build():
 
 Unzip the complete folder, then double-click index.html in Chrome or Edge. No server, credentials or network connection is required. Start-here tiles jump to five actual saved results. Only those five cards include video; all others retain thumbnails and reasons.
 
-Media: 480p, CRF 30, H.264/yuv420p, faststart, no audio. The black-gap pending derivative removes 9–12s, preserving context; it is NOT training-eligible. No approved trimmed example or confirmed rejected wrong-task example exists in this saved run; the tiles state the actual outcomes. Duplicate footage is a controlled alias, not a second independent recording. Large per-frame tables and Rerun files are intentionally omitted.
+Where modification is permitted, media are 480p, CRF 30, H.264/yuv420p, faststart and silent. Original-only media are copied byte-for-byte, with no trim, blur or re-encoding. No unlicensed variants are included. The tiles state the actual saved outcomes, not a promised cut or rejection. Duplicate footage is a controlled alias, not a second independent recording. Large per-frame tables and Rerun files are intentionally omitted.
 
 agreement.md retains the full aggregate counts but omits restricted-source identifiers. Completion labels are unknown, so 0/0 is not an accuracy claim. Gyro plots/CSV are TRAIN development evidence from seven pairs with one fixed mapping, not test accuracy. The splice window plot is evidence only.
 
@@ -134,7 +136,7 @@ agreement.md retains the full aggregate counts but omits restricted-source ident
 
 EPIC-KITCHENS-100: https://epic-kitchens.github.io/2024 — CC BY-NC 4.0, https://creativecommons.org/licenses/by-nc/4.0/ . Credit Dima Damen et al., Rescaling Egocentric Vision: Collection, Pipeline and Challenges for EPIC-KITCHENS-100, IJCV 130, 33–55 (2022), https://doi.org/10.1007/s11263-021-01531-2 . Demo media are resized silent excerpts; the splice joins two source windows. These modifications are not original unedited footage. No endorsement is implied; original noncommercial terms remain applicable.
 
-EgoDex: https://github.com/apple-aiml-research/ml-egodex — dataset terms CC-by-NC-ND. Credit Ryan Hoque et al., EgoDex: Learning Dexterous Manipulation from Large-Scale Egocentric Video (2025), https://arxiv.org/abs/2505.11709 . The local catalog label own does not mean author-recorded footage. The black-gap video and its trim are synthetic modifications of EgoDex footage; this packaging does not grant redistribution rights for adapted material. Retain attribution and verify permission before publicly sharing adapted footage.
+EgoDex: https://github.com/apple-aiml-research/ml-egodex — dataset terms CC-by-NC-ND. Credit Ryan Hoque et al., EgoDex: Learning Dexterous Manipulation from Large-Scale Egocentric Video (2025), https://arxiv.org/abs/2505.11709 . The corrected source is egodex, not own. Only original video bytes are included; no EgoDex blur/trim/variant exports are permitted. Source credit: EgoDex, Apple — CC BY-NC-ND.
 
 No restricted-source media, thumbnails or identifiers are included. Project code does not relicense any dataset asset.
 ''')

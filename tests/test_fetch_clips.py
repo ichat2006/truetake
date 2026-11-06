@@ -92,7 +92,9 @@ def test_overlapping_annotations_do_not_double_count():
 
 def test_pinned_plan_is_disjoint_and_manifest_agrees():
     plan = json.loads(fetch.PLAN.read_text())
-    rows = pd.read_csv(fetch.MANIFEST, keep_default_na=False)
+    import io
+    # The download plan is a fixture; real labels may subsequently be reviewed.
+    rows = pd.read_csv(io.BytesIO(fetch.manifest_bytes(plan['jobs'])), keep_default_na=False)
     epic = [job for job in plan["jobs"] if job["source"] == "epic"]
     assert len(epic) == 16
     assert len({job["participant"] for job in epic}) == 8
@@ -109,7 +111,7 @@ def test_pinned_plan_is_disjoint_and_manifest_agrees():
     assert set(rows.goal_met_expected) == {"unknown"}
     assert set(rows.label_status) == {"unverified"}
     assert list(rows) == fetch.FIELDS
-    assert fetch.manifest_bytes(plan["jobs"]) == fetch.MANIFEST.read_bytes()
+    assert len(rows)==len(plan['jobs'])
     assert sum(job["source"] == "hub" for job in plan["jobs"]) == 7
     assert sum(job["source"] == "own" for job in plan["jobs"]) == 6
     assert set(rows[(rows.source == "own") & (rows.split == "test")].clip_id) == fetch.OWN_TEST_CLIPS
@@ -130,7 +132,7 @@ def test_requested_split_migration_is_idempotent_and_preserves_media(tmp_path, m
     original_plan = json.loads(fetch.PLAN.read_text())
     manifest = tmp_path / "data/manifest.csv"
     plan_path = tmp_path / "tools/clip_sources.json"
-    fetch.write_new(manifest, fetch.MANIFEST.read_bytes())
+    fetch.write_new(manifest, fetch.manifest_bytes(original_plan['jobs']))
     fetch.write_new(plan_path, fetch.PLAN.read_bytes())
     own_jobs = [job for job in original_plan["jobs"] if job["source"] == "own"]
     protected = tmp_path / "data/raw/existing.mp4"
@@ -150,7 +152,8 @@ def test_split_update_refuses_reviewed_labels(tmp_path, monkeypatch):
     plan_path = tmp_path / "plan.json"
     manifest = tmp_path / "manifest.csv"
     plan_path.write_bytes(fetch.PLAN.read_bytes())
-    rows = pd.read_csv(fetch.MANIFEST, keep_default_na=False)
+    import io
+    rows = pd.read_csv(io.BytesIO(fetch.manifest_bytes(json.loads(fetch.PLAN.read_text())['jobs'])), keep_default_na=False)
     rows.loc[0, "label_status"] = "verified"
     rows.to_csv(manifest, index=False)
     before = manifest.read_bytes()

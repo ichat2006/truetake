@@ -41,7 +41,15 @@ def write_batch_report(cards: dict[str, dict], batch: dict, output_dir: str) -> 
     batch["claude_usage"] = {key: sum(item.get(key, 0) for item in usage) for key in
         ("actual_api_calls", "actual_images_sent", "actual_input_tokens", "actual_output_tokens")}
     for card in cards.values():
+        from truetake.licenses import apply_license
+        card.update(apply_license(card))
         spans = card.get("privacy_blur_intervals", [])
+        if not card['media_display_allowed']:
+            card.update(media_hidden=True,thumbnails=[],preview_path='')
+            continue
+        if not card['license_permissions']['modify'] and not card.get('presentation_preview_ready'):
+            card['preview_path']=card['video_path']
+            card['presentation_preview_ready']=True
         if not card.get("presentation_preview_ready") or not Path(card.get("preview_path", "")).is_file():
             card["preview_path"] = browser_preview(card["video_path"], str(root / "previews"), spans)
         card["privacy_preview_blurred"] = bool(spans)

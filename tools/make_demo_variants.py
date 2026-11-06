@@ -57,7 +57,7 @@ def command(spec: dict, parents: dict, output: Path) -> list[str]:
 
 
 def create_variants() -> list[dict]:
-    with (ROOT / "data/manifest.csv").open(newline="") as handle:
+    with (ROOT / "data/manifest_v2.csv").open(newline="") as handle:
         reader = csv.DictReader(handle)
         fields = list(reader.fieldnames)
         parents = {row["clip_id"]: row for row in reader}
@@ -68,6 +68,9 @@ def create_variants() -> list[dict]:
     rows, skipped = [], []
     for spec in VARIANTS:
         parent = parents[spec["parent"]]
+        from truetake.licenses import permissions
+        if not permissions(parent.get('license'))['modify']:
+            raise ValueError('Licence forbids variants; use make_variants_from_own.py with self-recorded footage')
         video = DESTINATION / (spec["clip_id"] + ".mp4")
         sensor = DESTINATION / (spec["clip_id"] + "_sensors.csv")
         provenance = DESTINATION / (spec["clip_id"] + ".json")

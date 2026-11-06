@@ -22,6 +22,11 @@ def load_contract(path: str, instructions: str = "") -> dict:
     if version not in SUPPORTED_VERSIONS:
         raise ValueError("Unsupported contract schema version.")
     if version == 2:
+        from truetake.licenses import policy
+        defaults=yaml.safe_load((Path(__file__).resolve().parents[2]/'contracts/defaults.yaml').read_text())
+        contract.setdefault('intended_use',defaults['intended_use'])
+        if contract['intended_use'] not in policy()['intended_uses']:
+            raise ValueError('Unknown intended use')
         if not isinstance(contract.get("goal"), dict) or not isinstance(contract["goal"].get("required"), bool):
             raise ValueError("Version-2 contract requires a goal with a boolean required field.")
         rules = contract.get("process")

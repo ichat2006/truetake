@@ -86,7 +86,7 @@ def select_start_here(cards: dict) -> list[dict]:
         cuts=(card.get('export') or {}).get('plan',{}).get('applied_cuts',[])
         if role=='cut':
             seconds=sum(cut['end_s']-cut['start_s'] for cut in cuts)
-            caption=f'{badge(card).title()} — {seconds:g} s cut. {plain_reason(card)}'
+            caption=(f'{badge(card).title()} — {seconds:g} s cut. ' if cuts else f'{badge(card).title()} — No cuts applied. ')+plain_reason(card)
         pair=name.removesuffix('_controlled_reupload') if card.get('fixture_kind') else None
         selected.append({'clip_id':name,'role':role,'verdict':badge(card),'caption':caption,
                          'limitation':limitation,'pair_clip_id':pair if pair in visible else None})
@@ -113,7 +113,8 @@ def render_start_here(cards: dict, items: list[dict], root: Path) -> str:
         image=thumbs[len(thumbs)//2]['path'] if thumbs else None
         visual=f"<img src='{html.escape(os.path.relpath(image,root),quote=True)}' alt='{html.escape(name,quote=True)}'>" if image else ''
         pair=f"<a class='pair-link' href='#{html.escape(item['pair_clip_id'],quote=True)}'>Compare original: {html.escape(item['pair_clip_id'])}</a>" if item.get('pair_clip_id') else ''
-        tiles.append(f"<div class='start-tile' style='border-color:{COLORS[item['verdict']]}'><a href='#{html.escape(name,quote=True)}'>{visual}<strong>{html.escape(item['caption'])}</strong></a>{pair}</div>")
+        credit=f"<small>{html.escape(card.get('credit_line',''))}</small>" if card.get('credit_line') else ''
+        tiles.append(f"<div class='start-tile' style='border-color:{COLORS[item['verdict']]}'><a href='#{html.escape(name,quote=True)}'>{visual}{credit}<strong>{html.escape(item['caption'])}</strong></a>{pair}</div>")
     warnings=' '.join(dict.fromkeys(item['limitation'] for item in items if item.get('limitation')))
     return ("<section class='start-here'><h2>Start here</h2><div class='start-grid'>"+''.join(tiles)+"</div>"
             +f"<p class='start-note'>{html.escape(warnings)}</p>"
@@ -221,9 +222,11 @@ def render_report(cards: dict[str, dict], analysis: dict, root: Path) -> str:
         gyro = card.get("verification") or {}
         moment = reason_time(card)
         cuts = export.get("plan", {}).get("applied_cuts", [])
+        if not card.get('license_permissions',{}).get('modify',True):
+            cuts=[{'start_s':a,'end_s':b} for a,b in card.get('excluded_intervals',[])]
         duration = max(float(card.get("duration_s", 0.)), .001)
         bars = "".join(f"<button class='cut' style='left:{100*cut['start_s']/duration:.3f}%;width:{100*(cut['end_s']-cut['start_s'])/duration:.3f}%' data-player='{esc(player)}' data-seek='{cut['start_s']:.6f}' title='Removed: {cut['start_s']:.1f}–{cut['end_s']:.1f} seconds'></button>" for cut in cuts)
-        original = f"<video id='{esc(player)}' controls preload='metadata' src='{link(card['preview_path'])}'></video>"
+        original = f"<video id='{esc(player)}' controls preload='metadata' src='{link(card['preview_path'])}'></video>" if not card.get('media_hidden') else "<div class='empty-player'>Licence does not allow displaying this media.</div>"
         trimmed = f"<video id='{esc(edited_player)}' controls preload='metadata' src='{link(export['video_path'])}'></video>" if export.get("video_path") else "<div class='empty-player'>No approved output for this clip.</div>"
         edited_label = "Trimmed" if cuts else "Retained copy — no cuts" if export.get("video_path") else "Output"
         sensor_text = ("Phone motion matches the video." if gyro.get("passed") is True else
@@ -241,16 +244,21 @@ def render_report(cards: dict[str, dict], analysis: dict, root: Path) -> str:
         map_rows = "".join(f"<tr><td>{segment['source_start_s']:.3f}–{segment['source_end_s']:.3f}s</td><td>{segment['output_start_s']:.3f}–{segment['output_end_s']:.3f}s</td></tr>" for segment in export.get("plan", {}).get("kept_segments", []))
         technical = esc(json.dumps({key: card.get(key) for key in ("quality_score", "claude_status", "claude_usage", "claude_review", "manifest_entry", "gyro_alignment", "fixture_kind")}, indent=2))
         tag = ""
+        eligibility=card.get('eligibility',{})
+        eligibility_line=f"<p class='eligibility' data-eligible='{str(eligibility.get('eligible',False)).lower()}'>ELIGIBILITY · {esc(eligibility.get('line','Not assessed'))}</p>"
+        credit=f"<p class='credit'>{esc(card.get('credit_line',''))}</p>" if card.get('credit_line') else ''
+        artifacts=(f"<p><a href='{link(card['rerun_path'])}'>Rerun recording</a> · <a href='{link(card['card_path'])}'>Card JSON</a> · <a href='{link(card['table_path'])}'>Per-frame table</a></p>"
+                   if card.get('license_permissions',{}).get('modify',True) and not card.get('media_hidden') else '<p>Modified media artifacts withheld by licence.</p>')
         if verdict in ("APPROVED", "CUT"):
             tag = "<p style='color:#46d6a0'>sensor-verified</p>" if gyro.get("passed") is True else "<p style='color:#a9b8ca'>not sensor-verified</p>"
         panels.append(f"""<article id='{esc(clip_id)}'><div class='card-heading'><h2>{esc(clip_id)}</h2><span class='badge' style='--badge:{color}'>{verdict}</span></div>
-<p class='reason'>{esc(plain_reason(card))} <button class='time-link' data-player='{esc(player)}' data-seek='{moment:.6f}'>↗ {timestamp(moment)}</button></p>{tag}
+<p class='reason'>{esc(plain_reason(card))} <button class='time-link' data-player='{esc(player)}' data-seek='{moment:.6f}'>↗ {timestamp(moment)}</button></p>{tag}{eligibility_line}
 <p class='usable'>{card.get('usable_seconds',0.):.1f} usable seconds <small>· estimated from sampled evidence</small></p>
-<div class='comparison'><section><h3>Original</h3>{original}<div class='cut-bar' aria-label='Cut segments shaded'>{bars}</div><small>{'Shaded sections are removed from the output.' if cuts else 'No cuts applied.'}</small></section><section><h3>{edited_label}</h3>{trimmed}</section></div>
+<div class='comparison'><section><h3>Original</h3>{original}{credit}<div class='cut-bar' aria-label='Cut segments shaded'>{bars}</div><small>{'Shaded sections are proposals only; licence forbids modification.' if cuts and not card.get('license_permissions',{}).get('modify',True) else 'Shaded sections are removed from the output.' if cuts else 'No cuts applied.'}</small></section><section><h3>{'Proposed cut' if cuts else edited_label}</h3>{trimmed}{credit}</section></div>
 <div class='motion'>{sensor_visual}<p>{sensor_text}</p></div>
 <details><summary>Technical details, scores and evidence</summary><p>Meets the task checklist: {card.get('quality_score',0.):.1f}/100 decided-rule agreement; not an acceptance probability.</p><p>How different from other clips: {analysis.get('scene_distinctness',{}).get(clip_id,0.):.1f}/100 relative appearance difference.</p><ul>{checks}</ul><div class='frames'>{evidence}</div><p>{downloads}</p>
 <details><summary>Original → edited timestamp map</summary><table><tr><th>Original</th><th>Output</th></tr>{map_rows}</table></details>
-<p><a href='{link(card['rerun_path'])}'>Rerun recording</a> · <a href='{link(card['card_path'])}'>Card JSON</a> · <a href='{link(card['table_path'])}'>Per-frame table</a></p>
+{artifacts}
 <p>{esc(export.get('audio_policy',''))} {esc(export.get('sensor_policy',''))} {esc(export.get('post_edit_task_assessment',''))}</p><pre>{technical}</pre></details></article>""")
     legend = "".join(f"<span><i style='background:{color}'></i>{name.title()}</span>" for name, color in COLORS.items())
     ranking = "".join(f"<li>{esc(item['clip_id'])}: {esc(item['reason'])}</li>" for item in analysis.get("value_ranking", [])) or "<li>No approved clips available yet.</li>"
