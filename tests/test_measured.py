@@ -26,3 +26,32 @@ def test_defaults_and_overrides():
 def test_seconds_use_seconds_band_without_fractional_cap():
     assert band_result(11.,10.,3.)["state"] == "review"
     assert band_result(13.,10.,3.)["state"] == "pass"
+
+def test_one_hand_counts_without_changing_hands_inside():
+    import pandas as pd
+    table=pd.DataFrame({'t':[0.,.1,.2,.3,.4,.5], 'sample_end':[.1,.2,.3,.4,.5,.6],
+        'people_status':['ok','not_sampled','ok','not_sampled','ok','not_sampled'],
+        'hand_count':[1.,None,0.,None,2.,None], 'hands_inside':[0.,None,0.,None,1.,None]})
+    contract={'process':[{'id':'inside','measurement':'hands_inside','target':.6},
+                         {'id':'present','measurement':'hand_present','target':.6,'review_band':.1}]}
+    inside,present=context(table,contract)['rules']
+    assert inside['value']==pytest.approx(1/3)
+    assert present['value']==pytest.approx(2/3)
+    assert present['state']=='review'
+    assert present['observed_fraction']==pytest.approx(1.)
+
+def test_hand_presence_does_not_hold_past_limit_or_through_errors():
+    import pandas as pd
+    table=pd.DataFrame({'t':[0.,.1,.2,.3,.4,.5], 'sample_end':[.1,.2,.3,.4,.5,.6],
+        'people_status':['ok','not_sampled','not_sampled','not_sampled','error','not_sampled'],
+        'hand_count':[1.,None,None,None,None,None]})
+    rule=context(table,{'process':[{'id':'one','measurement':'hand_present','target':.6}]})['rules'][0]
+    assert rule['observed_fraction']==pytest.approx(.5)
+    assert rule['value']==1.
+
+def test_missing_hand_count_is_unknown_even_with_ok_status():
+    import pandas as pd
+    table=pd.DataFrame({'t':[0.,.1], 'sample_end':[.1,.2], 'people_status':['ok','not_sampled'],
+                        'hand_count':[None,None]})
+    rule=context(table,{'process':[{'id':'one','measurement':'hand_present','target':.6}]})['rules'][0]
+    assert rule['value'] is None and rule['observed_fraction']==0.

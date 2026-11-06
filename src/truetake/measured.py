@@ -45,14 +45,18 @@ def context(table: pd.DataFrame, contract: dict | None = None, excluded: list | 
             continue
         signal = np.full(len(table), np.nan)
         kind = rule.get("measurement")
-        if kind == "hands_inside" and "hands_inside" in table and "people_status" in table:
+        column = "hand_count" if kind == "hand_present" else "hands_inside"
+        if kind in ("hands_inside", "hand_present") and column in table and "people_status" in table:
             scheduled = table[table.people_status != "not_sampled"]
             if len(scheduled):
                 indices = np.searchsorted(scheduled.t.to_numpy(), table.t.to_numpy(), side="right") - 1
                 selected = np.maximum(indices, 0)
                 good = (indices >= 0) & (table.t.to_numpy() - scheduled.t.to_numpy()[selected] <= HAND_HOLD_S + TIME_EPSILON)
                 good &= scheduled.people_status.to_numpy()[selected] == "ok"
-                signal[good] = scheduled.hands_inside.to_numpy(dtype=float)[selected[good]]
+                values = scheduled[column].to_numpy(dtype=float)
+                if kind == "hand_present":
+                    values = np.where(np.isfinite(values), (values >= 1).astype(float), np.nan)
+                signal[good] = values[selected[good]]
         elif kind == "active_fraction" and "frame_change" in table:
             signal = np.where(table.frame_change.notna(), 1., np.nan)
             idle = table.frame_change.to_numpy() <= engineering["idle_change_max"]

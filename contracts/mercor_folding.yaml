@@ -22,11 +22,12 @@ process:
   on_brief_gap: allow
   on_long_gap: exclude_interval
 - id: both_hands_visible
-  description: Both hands are visible while manipulating the garment.
+  description: At least one hand is visible while handling the item.
   required: false
   on_failure: warning
-  measurement: hands_inside
-  target: 0.9
+  measurement: hand_present
+  target: 0.60
+  review_band: 0.10
 - id: idle
   max_idle_s: 3.0
   on_failure: exclude_interval

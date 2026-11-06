@@ -1,5 +1,15 @@
 # Overnight implementation status
 
+Follow-up: the active folding/washing contracts now measure at least one detected
+hand (`hand_present`, target 0.60, review band 0.10). `hands_inside` remains unchanged.
+Decisions and exports can be rebuilt without inference or API calls using
+`uv run python tools/recompute_cached_demo.py --rerun`. Full before/after audits are
+under `outputs/hand_presence/`. The hands rule keeps its historical ID for cached
+evidence references; its description and measurement define the current policy.
+Locally confirmed unusable intervals may be cut in a pending review copy, which
+remains excluded from the accepted training collection. Idle and goal rules are
+unchanged. The counts below describe the earlier overnight policy.
+
 The detailed local audit is `outputs/overnight/REPORT.md` (outputs are not committed).
 
 The requested Haiku 5.5 and Sonnet 5.5 probes could not pass SDK authentication

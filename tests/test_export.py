@@ -148,6 +148,19 @@ def test_pending_copy_preserves_context_and_rejected_clip_is_omitted(source, tmp
     collection = write_collection_manifest({"pending": pending, "reject": rejected, "copy": duplicate}, str(tmp_path / "exports"))
     assert collection["accepted_count"] == 0 and collection["pending_count"] == 1 and collection["omitted_count"] == 2
 
+def test_pending_local_trim_is_playable_and_kept_out_of_accepted_collection(source,tmp_path):
+    card=export_card(source,'REVIEW',[[1.,2.]])
+    card['completion_required']=True
+    card['checks'].append({'name':'process.local_unusable_time','passed':True,
+                          'reason':'exact black frames','flags':[[.5,2.5,'black frames']]})
+    result=export_clip(source,card,str(tmp_path/'exports'))
+    assert result['export_status']=='retained_pending' and not result['eligible_for_training']
+    assert result['output_duration_s']==pytest.approx(3.)
+    assert result['video_encoding']['codec_name']=='h264'
+    assert len(load_recording(result['video_path']).frame_times)==30
+    collection=write_collection_manifest({'pending':result},str(tmp_path/'exports'))
+    assert collection['pending_count']==1 and collection['accepted_count']==0
+
 
 def test_rotation_is_baked_once_into_output_pixels(source, tmp_path):
     rotated = tmp_path / "rotated.mp4"

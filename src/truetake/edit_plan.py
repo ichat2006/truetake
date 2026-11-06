@@ -70,7 +70,15 @@ def build_edit_plan(rec: Recording, card: dict, table: pd.DataFrame | None = Non
     eligible = card["status"] == "ACCEPT" and not fallback
     warnings = []
     authorized = any(check["name"] == "process.excluded_time" and check["passed"] is True for check in card.get("checks", []))
-    cuts = requested if eligible and authorized else []
+    local_spans = [flag for check in card.get("checks", [])
+                   if check["name"] == "process.local_unusable_time" and check["passed"] is True
+                   for flag in check.get("flags", [])]
+    pending_local = (card["status"] == "REVIEW" and not fallback and bool(requested)
+                     and all(0 < a < b < duration and any(flag[0] <= a and b <= flag[1] for flag in local_spans)
+                             for a, b in requested))
+    cuts = requested if (eligible or pending_local) and authorized else []
+    if cuts and pending_local:
+        warnings.append("Local unusable frames removed in a pending copy; task goal remains unverified and this copy is not training-eligible.")
     if requested and not cuts:
         warnings.append("Requested cuts retained: no accepted, compiled exclusion plan for this derivative.")
     if fallback:
@@ -85,7 +93,7 @@ def build_edit_plan(rec: Recording, card: dict, table: pd.DataFrame | None = Non
         context = float((table.iloc[0].get("contract") or {}).get("duration", {}).get("preserve_context_before_after_s", DEFAULT_CONTEXT_S))
     if not math.isfinite(context) or context < 0:
         raise ValueError("Edit context must be finite nonnegative seconds.")
-    if cuts and card.get("completion_required", True) and not goal_times:
+    if cuts and card.get("completion_required", True) and not goal_times and not pending_local:
         cuts = []
         warnings.append("Completion evidence unavailable: retained requested cuts.")
     boundaries = np.append(rec.frame_times, duration)

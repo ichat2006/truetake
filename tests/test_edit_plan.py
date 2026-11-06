@@ -52,6 +52,28 @@ def test_completion_evidence_and_its_context_are_protected():
     card["claude_review"]["evidence"][0]["t"] = 3.9
     assert len(build_edit_plan(rec, card)["applied_cuts"]) == 1
 
+def test_pending_local_cut_keeps_unverified_goal_pending():
+    rec=recording()
+    card=export_card(rec,'REVIEW',[[1.,2.]])
+    card['completion_required']=True
+    card['checks'].append({'name':'process.local_unusable_time','passed':True,
+                           'reason':'exact black frames','flags':[[.5,2.5,'black frames']]})
+    plan=build_edit_plan(rec,card)
+    assert not plan['eligible_for_training']
+    assert plan['output_duration_s']==3.
+    assert len(plan['applied_cuts'])==1
+    # An unrelated semantic cut cannot inherit local-detector authorization.
+    card['excluded_intervals']=[[2.6,3.]]
+    assert build_edit_plan(rec,card)['applied_cuts']==[]
+
+def test_pending_local_cut_still_protects_known_completion_evidence():
+    rec=recording()
+    card=export_card(rec,'REVIEW',[[1.,2.]])
+    card['checks'].append({'name':'process.local_unusable_time','passed':True,
+                           'reason':'repeated frames','flags':[[.5,2.5,'freeze']]})
+    card['claude_review']={'evidence':[{'id':'end','t':1.5}], 'goal':{'evidence_ids':['end']}}
+    assert build_edit_plan(rec,card)['applied_cuts']==[]
+
 
 @pytest.mark.parametrize("cuts", [[[1., 1.]], [[-1., 1.]], [[0., 5.]], [[0., float("nan")]], [[0., 4.]]])
 def test_invalid_or_empty_video_plans_are_rejected(cuts):

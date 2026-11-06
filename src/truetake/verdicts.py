@@ -13,6 +13,8 @@ def apply_verdict(table, checks: list[CheckResult], quality: dict):
     reason_times = {}
     for rule in measured["rules"]:
         label = rule["rule_id"].replace("_", " ").capitalize()
+        if rule["measurement"] == "hand_present":
+            label = "At least one hand detected"
         value = rule["value"]
         percent = "not measured" if value is None else f"{100*value:.0f}% of task time"
         window = rule["flags"][0] if rule["flags"] else [0., float(table.sample_end.iloc[-1])]
@@ -54,6 +56,7 @@ def apply_verdict(table, checks: list[CheckResult], quality: dict):
         reviews = []
     verdict = "REJECTED" if failures else "NEEDS REVIEW" if reviews else "APPROVED"
     result = {**quality, "status": STATUS[verdict], "verdict": verdict, "measured": measured,
+              "failure_reasons": failures, "review_reasons": reviews,
               "decision_reasons": failures or reviews or ["Meets the task checklist."],
               "decision_timestamp_s": reason_times.get((failures or reviews or [""])[0], 0.),
               "sensor_verified": bool(gyro and gyro.passed is True)}
