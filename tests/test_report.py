@@ -4,6 +4,21 @@ from pathlib import Path
 from truetake.report import write_batch_report
 from truetake.compare import compare_reviews
 
+def test_test_agreement_does_not_invent_unknown_labels_or_score_reviews():
+    import importlib.util
+    spec=importlib.util.spec_from_file_location('agreement',Path('docs/final_agreement.py'))
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    rows=[{'clip_id':name,'split':split,'source':'own','label_status':'unverified',
+           'goal_met_expected':goal,'attack':attack}
+          for name,split,goal,attack in [('yes','test','yes','none'),('unknown','test','unknown','none'),
+              ('review','test','no','none'),('swap','test','yes','swap'),('train','train','yes','none')]]
+    cards={name:{'verdict':verdict} for name,verdict in [('yes','APPROVED'),('unknown','APPROVED'),
+            ('review','NEEDS REVIEW'),('swap','REJECTED'),('train','REJECTED')]}
+    result=module.compare(rows,cards)
+    assert len(result['rows'])==4 and '2 of 2' in result['line']
+    assert 'separately (1)' in result['line']
+    assert next(r for r in result['rows'] if r['clip_id']=='unknown')['agree'] is None
+
 
 def test_report_is_offline_escapes_text_and_links_evidence(tmp_path, monkeypatch):
     monkeypatch.setattr("truetake.report.browser_preview", lambda video, destination, spans: video)
