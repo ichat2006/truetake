@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "status": "calibrated",
+  "axis_mapping": {
+    "flow_pan": {
+      "axis": "gyro_gz",
+      "sign": 1
+    },
+    "flow_tilt": {
+      "axis": "gyro_gy",
+      "sign": 1
+    },
+    "flow_roll": {
+      "axis": "gyro_gx",
+      "sign": 1
+    }
+  },
+  "min_match_score": 0.29,
+  "source_clip_id": "P01_102_000_060",
+  "source_interval_s": [
+    0.0,
+    60.0
+  ],
+  "reference_axes": [
+    "flow_pan",
+    "flow_roll"
+  ],
+  "reference_offset_s": -0.30000000000000004,
+  "source_rotation_deg": 0,
+  "device_identity": "unconfirmed",
+  "note": "User-set 0.29 threshold: rounded midpoint between highest swapped (0.141) and lowest real (0.433) fixed-mapping train scores. Development calibration on these seven train clips only; no held-out accuracy claim.",
+  "diagnostics": {
+    "calibration_axis_lags_consistent": true,
+    "calibration_axis_offsets_s": {
+      "flow_pan": -0.30000000000000004,
+      "flow_tilt": -0.9,
+      "flow_roll": -0.4
+    },
+    "validation": {
+      "total_windows": 56,
+      "measured_windows": 45,
+      "insufficient_motion_windows": 11,
+      "reference_offset_s": -0.30000000000000004,
+      "reference_axes": [
+        "flow_pan",
+        "flow_roll"
+      ],
+      "mapping_comparable_windows": 45,
+      "mapping_agreement_windows": 9,
+      "offset_agreement_windows": 28,
+      "axis_consistent_windows": 24
+    }
+  },
+  "train_clip_ids": [
+    "P01_104_033_093",
+    "P01_105_1088_1148",
+    "P03_109_685_745",
+    "P03_119_207_267",
+    "P04_104_592_652",
+    "P07_111_000_060",
+    "P01_102_000_060"
+  ],
+  "review_low": 0.14143241884867275,
+  "review_high": 0.4331009602709654
+}
