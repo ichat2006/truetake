@@ -136,7 +136,7 @@ def render_start_here(cards: dict, items: list[dict], root: Path) -> str:
     for item in items:
         name=item['clip_id'];card=cards[name]
         thumbs=card.get('thumbnails',[])
-        image=thumbs[len(thumbs)//2]['path'] if thumbs else None
+        image=card.get('map_thumbnail') or (thumbs[len(thumbs)//2]['path'] if thumbs else None)
         visual=f"<img src='{html.escape(os.path.relpath(image,root),quote=True)}' alt='{html.escape(name,quote=True)}'>" if image else ''
         pair=f"<a class='pair-link' href='#{html.escape(item['pair_clip_id'],quote=True)}'>Compare original: {html.escape(item['pair_clip_id'])}</a>" if item.get('pair_clip_id') else ''
         credit=f"<small>{html.escape(card.get('credit_line',''))}</small>" if card.get('credit_line') else ''

@@ -76,3 +76,10 @@ def test_motion_line_uses_stored_scores_and_does_not_invent_sensor_proof():
     assert 'mismatch' in motion_check(card)
     card['gyro_alignment']={};card['verification']['passed']=None
     assert 'inconclusive' in motion_check(card) and 'unavailable' in motion_check(card)
+
+
+def test_cut_start_tile_uses_midpoint_when_cached_evidence_has_no_images(tmp_path):
+    from truetake.presentation import render_start_here
+    card={'clip_id':'cut','map_thumbnail':str(tmp_path/'midpoint.jpg'),'thumbnails':[]}
+    item={'clip_id':'cut','verdict':'NEEDS REVIEW','caption':'Proposed cut','limitation':''}
+    assert "src='midpoint.jpg'" in render_start_here({'cut':card},[item],tmp_path)
