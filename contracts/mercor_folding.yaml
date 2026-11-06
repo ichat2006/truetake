@@ -1,0 +1,72 @@
+# Proposed lab input for the hackathon. Not official Mercor policy.
+# Operator-approved defaults for this prototype, not official Mercor rules.
+draft: false
+schema_version: 2
+task: Fold a garment
+collection_purpose: First-person demonstrations for robot manipulation training
+lab_instructions: >-
+  Keep the garment and meaningful folding actions understandable in the video.
+  Brief hand exits are acceptable when the folding action remains visible.
+  Different successful folding techniques are welcome.
+
+goal:
+  id: folding_completed
+  description: A visible folding sequence ends with the garment folded.
+  required: true
+  on_failure: reject
+  on_uncertain: human_review
+  allow_explicit_request_override: true
+  minimum_partial_action: Useful task-relevant manipulation must still be shown when partial demonstrations are requested.
+
+process:
+  - id: folding_action_visible
+    description: The garment and task-relevant manipulation can be followed.
+    required: true
+    brief_gap_tolerance_s: 2.0  # Proposed default; lab may change.
+    on_brief_gap: allow
+    on_long_gap: exclude_interval
+  - id: both_hands_visible
+    description: Both hands are visible while manipulating the garment.
+    required: false
+    on_failure: warning
+  - id: idle
+    max_idle_s: 3.0
+    on_failure: exclude_interval
+
+requirements:
+  landscape: {enabled: true, required: false, on_failure: warning}
+  min_height_px: {enabled: true, value: 720, required: false, on_failure: warning}
+  min_fps: {enabled: true, value: 24, required: false, on_failure: warning}
+  faces: {enabled: true, on_detection: flag_for_blur, reject_whole_clip: false}
+  sensors: {required: false, when_missing: unverified}
+
+duration:
+  min_usable_seconds: null  # No arbitrary minimum unless the lab sets one.
+  exclude_flagged_intervals: true
+  trimming_policy: conservative
+  exclude_only_when: task_relevant_content_is_clearly_unusable
+  uncertain_intervals: retain_and_flag_for_review
+  preserve_context_before_after_s: 1.0
+
+decision:
+  accept_when: required_goal_and_process_pass_after_allowed_exclusions
+  reject_when: required_goal_fails_or_explicit_lab_limit_is_violated
+  uncertain_evidence: human_review
+  score_is_acceptance_probability: false
+
+ai_review:
+  provider: anthropic
+  initial_evidence: task_overview_and_start_end_frames
+  follow_up: uncertainty_and_long_gap_windows_only
+  include_context_before_after_s: 1.0
+  cite_supplied_frames: true
+  do_not_infer_continuity_between_sparse_frames: true
+
+value:
+  eligible_clips: accepted_only
+  compare: [scene, hand_motion_when_available, folding_steps]
+  duplicate_action: flag_group_and_keep_best_approved_example
+  wanted_variations:
+    - {garment: tshirt, surface: table, style: fold-half-short}
+    - {garment: tshirt, surface: table, style: fold-thirds}
+    - {garment: towel, surface: table, style: roll}

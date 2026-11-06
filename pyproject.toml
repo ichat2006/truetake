@@ -1,0 +1,46 @@
+[project]
+name = "truetake"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=2.5.0",
+    "imagehash>=4.3.2",
+    "matplotlib>=3.11.2",
+    "mediapipe>=1.2.2",
+    "numpy>=2.4.6",
+    "open-clip-torch>=3.3.0",
+    "opencv-python>=5.0.0.93",
+    "pandas>=3.1.1",
+    "pyarrow>=26.0.1",
+    "pydantic>=2.14.2",
+    "python-dotenv>=1.2.4",
+    "pyyaml>=6.0.3",
+    "rerun-sdk>=0.42.0",
+    "scikit-learn>=1.9.1",
+    "scipy>=1.17.1",
+    "torch>=2.15.0",
+    "torchvision>=0.29.2",
+]
+
+[project.scripts]
+truetake = "truetake:main"
+
+[build-system]
+requires = ["uv_build>=0.13.7,<0.14.0"]
+build-backend = "uv_build"
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu" }]
+torchvision = [{ index = "pytorch-cpu" }]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]

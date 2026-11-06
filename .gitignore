@@ -1,0 +1,27 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Local credentials (never commit)
+.env
+.env.*
+
+# Local tooling and generated review artifacts
+.idea/
+.pytest_cache/
+outputs/
+
+# Downloaded corpus media and raw sensor exports; keep data/manifest.csv reviewable.
+/data/raw/
+/data/clips/
+
+# Overnight commits contain code only; never stage dataset labels/media or archives.
+/data/
+*.zip

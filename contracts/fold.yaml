@@ -1,0 +1,20 @@
+task: fold a T-shirt
+goal:
+  - folded: garment ends folded into a compact rectangle
+process:
+  - hands_visible: both hands fully in frame while handling the garment
+  - garment_visible: garment in frame
+  - continuous: no idle stretch over 3 s
+requirements:
+  hard:
+    - landscape
+    - min_1080p
+    - min_30fps
+    - no_slow_motion
+    - no_faces
+    - unedited
+    - not_on_tripod
+  soft:
+    - camera_slightly_down
+    - head_or_chest_mount
+min_usable_seconds: 10
