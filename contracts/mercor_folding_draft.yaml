@@ -24,11 +24,12 @@ process:
     brief_gap_tolerance_s: 2.0  # Proposed default; lab may change.
     on_brief_gap: allow
     on_long_gap: exclude_interval
-  - id: both_hands_visible
+  - id: one_hand_visible
     description: Both hands are visible while manipulating the garment.
     required: false
     on_failure: warning
   - id: idle
+  description: No idle stretch over 3 s
     max_idle_s: 3.0
     on_failure: exclude_interval
 

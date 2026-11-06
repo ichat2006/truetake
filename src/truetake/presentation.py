@@ -18,6 +18,7 @@ MAP_WIDTH = 1200
 MAP_HEIGHT = 520
 MAX_REASON_CHARACTERS = 220
 MAX_TRACE_POINTS = 180
+MIN_REVIEW_DURATION_S = 5.0
 COLORS = {"APPROVED": "#46d6a0", "CUT": "#64c4ff", "REJECTED": "#ff8581",
           "DUPLICATE": "#b5a2ff", "NOT VERIFIED": "#f4c777", "NEEDS REVIEW": "#f4c777"}
 
@@ -36,6 +37,11 @@ def badge(card: dict) -> str:
 
 
 def plain_reason(card: dict) -> str:
+    duration = float(card.get('duration_s', 0.))
+    assessment = (card.get('measured') or {}).get('usable_assessment') or {}
+    minimum = assessment.get('target') or card.get('min_usable_seconds') or 0.
+    if duration > 0 and (duration < MIN_REVIEW_DURATION_S or duration < minimum):
+        return f'Too short to review ({duration:.1f} s)'
     if card.get("verdict") in ("REJECTED", "NEEDS REVIEW") and card.get("decision_reasons"):
         return card["decision_reasons"][0]
     verdict = badge(card)
@@ -203,7 +209,7 @@ def render_report(cards: dict[str, dict], analysis: dict, root: Path) -> str:
             y = min(440, max(15, y + 65 * math.sin(attempts * 2.4)))
         positions.append((x, y))
         thumbs = card.get("thumbnails", [])
-        thumb = thumbs[len(thumbs)//2]["path"] if thumbs else None
+        thumb = card.get('map_thumbnail') or (thumbs[len(thumbs)//2]["path"] if thumbs else None)
         visual = f"<image href='{link(thumb)}' x='{x:.1f}' y='{y:.1f}' width='72' height='44' preserveAspectRatio='xMidYMid slice'/>" if thumb else ""
         color = COLORS[badge(card)]
         points.append(f"<a href='#{esc(clip_id)}'><title>{esc(clip_id)} · {badge(card)}</title><rect x='{x-2:.1f}' y='{y-2:.1f}' width='76' height='48' rx='5' fill='#1b293a' stroke='{color}' stroke-width='3'/>{visual}<text x='{x+36:.1f}' y='{y+58:.1f}' text-anchor='middle'>{esc(clip_id[:22])}</text></a>")
@@ -213,7 +219,8 @@ def render_report(cards: dict[str, dict], analysis: dict, root: Path) -> str:
         card = cards[clip_id]
         x, y = 30 + 100 * index, 455
         thumbs = card.get("thumbnails", [])
-        image = f"<image href='{link(thumbs[0]['path'])}' x='{x}' y='{y}' width='72' height='44'/>" if thumbs else ""
+        thumbnail = card.get('map_thumbnail') or (thumbs[0]['path'] if thumbs else None)
+        image = f"<image href='{link(thumbnail)}' x='{x}' y='{y}' width='72' height='44'/>" if thumbnail else ""
         points.append(f"<a href='#{esc(clip_id)}'><title>{esc(clip_id)} · no comparison signal</title><rect x='{x-2}' y='{y-2}' width='76' height='48' fill='#152132' stroke='{COLORS[badge(card)]}' stroke-width='3'/>{image}<text x='{x}' y='{y-7}'>Unplaced</text></a>")
     panels = []
     for clip_id, card in cards.items():

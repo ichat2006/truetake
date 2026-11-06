@@ -120,13 +120,10 @@ def media(rid:str,cid:str,kind:str):
     licensed=apply_license(item)
     if not licensed['media_display_allowed']:raise HTTPException(403,'Licence does not allow display')
     if kind=='original':return FileResponse(item['video_path'])
-    card=item.get('cached_card') or {};thumbs=card.get('thumbnails',[])
-    if thumbs:return FileResponse(resolve_cached_path(thumbs[len(thumbs)//2]['path']))
     target=Path(run['folder'])/(cid+'_thumbnail.jpg')
-    if not target.exists():
-        import subprocess
-        subprocess.run(['ffmpeg','-nostdin','-v','error','-i',item['video_path'],'-frames:v','1','-vf','scale=320:-2',str(target)],check=True,timeout=30)
-    return FileResponse(target)
+    from truetake.thumbnails import midpoint_thumbnail
+    source=item.get('preview_path') or item['video_path']
+    return FileResponse(midpoint_thumbnail(source,str(target),float(item.get('duration_s',0))))
 
 @app.get('/runs/{rid}/{asset:path}')
 def artifact(rid:str,asset:str):

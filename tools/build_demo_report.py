@@ -65,6 +65,8 @@ def publish_subset(saved: dict, target: Path, public: bool) -> str:
             preview = browser_preview(card["video_path"], str(target / "previews"), card.get("privacy_blur_intervals", []))
         card["preview_path"] = copy_asset(preview, target / "media" / (name + "_original.mp4"))
         card["presentation_preview_ready"] = True
+        from truetake.thumbnails import midpoint_thumbnail
+        card['map_thumbnail'] = midpoint_thumbnail(card['preview_path'], str(directory / 'midpoint.jpg'), card['duration_s'])
         for index, image in enumerate(card.get("thumbnails", [])):
             image['path']=str(resolve_cached_path(image['path']))
             destination = directory / "evidence" / f"{index:04d}.jpg"
@@ -114,9 +116,9 @@ def publish_subset(saved: dict, target: Path, public: bool) -> str:
     permitted={target/name for name in ['index.html','batch.json','summary.csv','skipped.csv','batch_map.rrd']}
     permitted.add(target/'exports/collection.json')
     for name,card in cards.items():
-        paths=[card.get(key) for key in ['card_path','table_path','rerun_path','preview_path']]
+        paths=[card.get(key) for key in ['card_path','table_path','rerun_path','preview_path','map_thumbnail']]
         if not card['license_permissions']['modify']:
-            paths=[card.get('card_path'),card.get('preview_path')]
+            paths=[card.get('card_path'),card.get('preview_path'),card.get('map_thumbnail')]
         paths += [item['path'] for item in card.get('thumbnails',[])]
         paths += [card.get('export',{}).get(key) for key in ['video_path','frame_map_path','sensors_path','manifest_path']]
         paths += [str(target/'motion'/(name+'.svg'))]

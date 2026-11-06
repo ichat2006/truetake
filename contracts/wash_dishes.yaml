@@ -19,7 +19,7 @@ process:
   brief_gap_tolerance_s: 2.0
   on_brief_gap: allow
   on_long_gap: exclude_interval
-- id: both_hands_visible
+- id: one_hand_visible
   description: At least one hand is visible while handling the item.
   required: false
   on_failure: warning
@@ -27,6 +27,7 @@ process:
   target: 0.60
   review_band: 0.10
 - id: idle
+  description: No idle stretch over 3 s
   max_idle_s: 3.0
   on_failure: exclude_interval
   measurement: active_fraction

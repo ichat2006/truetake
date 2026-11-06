@@ -40,6 +40,11 @@ def test_upload_pairing_unknown_display_and_traversal(client,tmp_path,monkeypatc
     assert client.patch(f'/api/runs/{rid}/clips/{cid}',json={'license':'own'}).status_code==200
     assert s.RUNS[rid]['clips'][0]['source']=='own'
     assert client.get(f'/api/runs/{rid}/clips/{cid}/original').status_code==200
+    thumbnail=client.get(f'/api/runs/{rid}/clips/{cid}/thumbnail')
+    assert thumbnail.status_code==200
+    from PIL import Image
+    import io
+    assert Image.open(io.BytesIO(thumbnail.content)).width==320
     assert all(s.UPLOADS in Path(c['video_path']).parents for c in s.RUNS[rid]['clips'])
     assert client.get(f'/runs/{rid}/%2e%2e/contract.yaml').status_code==404
 

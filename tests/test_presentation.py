@@ -95,7 +95,11 @@ def test_public_publication_excludes_hub_from_html_json_and_assets(tmp_path):
         sample["thumbnails"] = []
         sample["table_path"] = str(inputs / (name + ".json"))
         pd.DataFrame({"clip_embedding": [[1., 0.]]}).to_json(sample["table_path"], orient="records")
-        Path(sample["preview_path"]).write_bytes(b"synthetic video fixture")
+        import subprocess
+        if not Path(sample['preview_path']).exists():
+            subprocess.run(['ffmpeg','-nostdin','-v','error','-f','lavfi','-i','color=c=white:s=96x64:r=5:d=1',
+                            '-c:v','libx264','-threads','1',sample['preview_path']],check=True)
+        sample['duration_s']=1.
         Path(sample["rerun_path"]).write_bytes(b"synthetic rerun fixture")
         entries[name] = sample
     saved = {"cards": entries, "analysis": {"skipped": [{"clip_id": "private_hub_missing", "source": "hub"}]}}

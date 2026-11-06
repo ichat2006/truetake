@@ -20,7 +20,7 @@ def lab_table(seconds=15):
         "task_action_shown": {"verdict": "yes", "reason": "folding shown", "evidence_ids": ["e1"]},
         "completion_required": True, "completion_override_reason": "",
         "rules": [{"rule_id": "folding_action_visible", "verdict": "yes", "reason": "task understandable", "evidence_ids": ["e1", "e2"]},
-                  {"rule_id": "both_hands_visible", "verdict": "no", "reason": "brief hand exits", "evidence_ids": ["e1"]}],
+                  {"rule_id": "one_hand_visible", "verdict": "no", "reason": "brief hand exits", "evidence_ids": ["e1"]}],
         "steps": [{"name": "smooth", "evidence_ids": ["e1"]}],
         "intervals": [], "follow_up_requests": [], "provenance": {"api_calls": 1}}
     return table

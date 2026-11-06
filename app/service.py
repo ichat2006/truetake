@@ -60,7 +60,7 @@ def demo_catalog():
 
 def recommended(cards):
     # Saved outcomes select the story; no expected labels are used.
-    from truetake.presentation import badge
+    from truetake.presentation import badge,plain_reason
     chosen=[]
     predicates=[lambda n,c:badge(c)=='APPROVED' and c.get('manifest_entry',{}).get('task_expected')=='folding',
         lambda n,c:badge(c)=='NEEDS REVIEW' and (c.get('claude_review') or {}).get('goal',{}).get('verdict')=='yes' and c.get('manifest_entry',{}).get('task_expected')=='folding',
@@ -250,7 +250,8 @@ def run_job(run,contract):
                 Path(card['card_path']).write_text(json.dumps(card));update_stage(item,'Verdict','error')
             cards[item['clip_id']]=card
             tables[item['clip_id']]=pd.DataFrame(json.loads(Path(card['table_path']).read_text()))
-            item.update(verdict=badge(card),reason=(card.get('decision_reasons') or [''])[0],eligibility=card['eligibility'])
+            from truetake.presentation import plain_reason
+            item.update(verdict=badge(card),reason=plain_reason(card),eligibility=card['eligibility'])
             with STATE_LOCK:
                 from collections import Counter
                 run['counts']=dict(Counter(badge(c) for c in cards.values()))
